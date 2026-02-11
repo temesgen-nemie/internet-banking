@@ -1,6 +1,6 @@
 "use client";
 
-import { useFlowStore } from "../../store/flowStore";
+import { useFlowStore } from "../../store/flow/flowStore";
 
 type NodeNameInputProps = {
   nodeId: string;

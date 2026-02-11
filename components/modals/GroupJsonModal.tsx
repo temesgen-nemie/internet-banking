@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateFlow } from "../../lib/api";
-import { useFlowStore, type FlowJson } from "../../store/flowStore";
+import { useFlowStore, type FlowJson } from "../../store/flow/flowStore";
 
 export default function GroupJsonModal() {
   const { groupJsonModal, closeGroupJson, nodes, getRecursiveSubflowJson } = useFlowStore();

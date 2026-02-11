@@ -1,5 +1,5 @@
 import React from "react";
-import { useFlowStore } from "../../store/flowStore";
+import { useFlowStore } from "../../store/flow/flowStore";
 
 interface DeleteConfirmModalProps {
   flowName: string;

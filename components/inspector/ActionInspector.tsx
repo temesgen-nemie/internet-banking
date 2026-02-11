@@ -12,7 +12,7 @@ import ResponseMappingEditor from "./action/ResponseMappingEditor";
 import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 import { fetchFlowSettings, type FlowSettingsResponse } from "@/lib/api";
 
 type ActionInspectorProps = {

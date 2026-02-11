@@ -1,6 +1,6 @@
 
 import { Handle, Position, NodeProps } from "reactflow";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 
 type ConditionRoute = {
   when?: Record<string, [string, string | number]>;
@@ -21,7 +21,6 @@ type ConditionNodeProps = NodeProps<ConditionNodeData>;
 
 export default function ConditionNode({ id, data, selected }: ConditionNodeProps) {
   const edges = useFlowStore((s) => s.edges);
-  const nodes = useFlowStore((s) => s.nodes);
   const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
 
   return (
@@ -93,12 +92,10 @@ export default function ConditionNode({ id, data, selected }: ConditionNodeProps
                     >
                       {(() => {
                         if (!isActuallyConnected || !route.goto) return route.goto || "Set Target";
-                        // Find the actual edge to get the real target ID (it might be a funnel)
+                        // Find the actual edge to get the resolved target name
                         const edge = edges.find(e => e.source === id && e.sourceHandle === handleId);
                         if (!edge) return route.goto;
                         const resolved = resolveTargetId(edge.target);
-                        const targetNode = nodes.find(n => n.id === edge.target);
-                        if (!resolved.name && targetNode?.type === "funnel") return "Set Target";
                         return resolved.name || route.goto;
                       })()}
                     </span>
@@ -131,8 +128,6 @@ export default function ConditionNode({ id, data, selected }: ConditionNodeProps
                       const fallback = data.nextNode?.default;
                       if (!fallback) return "Next";
                       const resolved = resolveTargetId(fallback);
-                      const targetNode = nodes.find(n => n.id === fallback);
-                      if (!resolved.name && targetNode?.type === "funnel") return "Next";
                       return resolved.name || fallback;
                     })()}
                   </span>

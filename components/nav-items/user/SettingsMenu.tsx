@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 import {
   fetchFlowSettings,
   updateFlowSettings,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useFlowStore } from "../../store/flowStore";
+import { useFlowStore } from "../../store/flow/flowStore";
 import { toast } from "sonner";
 
 export default function GroupNamerModal() {

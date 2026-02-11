@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { FlowJson, FlowNode } from "../store/flowStore";
+import type { FlowJson, FlowNode } from "../store/flow/types";
 
 export const API_BASE_URL = "https://ussdtool.profilesage.com";
 

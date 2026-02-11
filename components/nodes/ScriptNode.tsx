@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps } from "reactflow";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 
 type ScriptNodeData = {
   name?: string;

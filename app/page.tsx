@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import Navbar from '../components/Navbar';
 import AuthGate from '../components/auth/AuthGate';
 import InspectorPanel from '../components/inspector/InspectorPanel';
-import { useFlowStore } from '../store/flowStore';
+import { useFlowStore } from '../store/flow/flowStore';
 import { Toaster } from 'sonner';
 
 const FlowCanvas = dynamic(() => import('../components/FlowCanvas'), { ssr: false });

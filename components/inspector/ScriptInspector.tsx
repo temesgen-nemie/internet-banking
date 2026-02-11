@@ -3,7 +3,7 @@ import TargetNodeDisplay from "./TargetNodeDisplay";
 import { useEffect, useRef } from "react";
 import type { Edge, Node } from "reactflow";
 import { toast } from "sonner";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 
 type ScriptInspectorProps = {
   node: Node;

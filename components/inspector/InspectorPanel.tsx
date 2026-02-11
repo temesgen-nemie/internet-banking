@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, type CSSProperties } from "react";
-import { useFlowStore } from "../../store/flowStore";
+import { useFlowStore } from "../../store/flow/flowStore";
 import { useAuthStore } from "../../store/authStore";
 import { checkMyFlowPermission } from "../../lib/api";
 import { toast } from "sonner";
@@ -9,7 +9,6 @@ import ActionInspector from "./ActionInspector";
 import PromptInspector from "./PromptInspector";
 import StartInspector from "./StartInspector";
 import ConditionInspector from "./ConditionInspector";
-import FunnelInspector from "./FunnelInspector";
 import ScriptInspector from "./ScriptInspector";
 
 export default function InspectorPanel() {
@@ -86,7 +85,6 @@ export default function InspectorPanel() {
           node.type === "action" ||
           node.type === "prompt" ||
           node.type === "condition" ||
-          node.type === "funnel" ||
           node.type === "script"
             ? 720
             : 350,
@@ -173,10 +171,6 @@ export default function InspectorPanel() {
         updateNodeData(node.id, {
             name: "",
             nextNode: { routes: [], default: "" }
-        });
-    } else if (node.type === "funnel") {
-        updateNodeData(node.id, {
-            nextNode: ""
         });
     } else if (node.type === "script") {
         updateNodeData(node.id, {
@@ -315,10 +309,6 @@ export default function InspectorPanel() {
 
             {node.type === "condition" && (
               <ConditionInspector node={node} updateNodeData={updateNodeData} />
-            )}
-
-            {node.type === "funnel" && (
-              <FunnelInspector node={node} updateNodeData={updateNodeData} />
             )}
             {node.type === "script" && (
               <ScriptInspector node={node} updateNodeData={updateNodeData} />

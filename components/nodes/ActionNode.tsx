@@ -1,7 +1,7 @@
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Badge } from '@/components/ui/badge';
 import type { ActionRoute, ActionNodeData } from '../inspector/action/types';
-import { useFlowStore } from '@/store/flowStore';
+import { useFlowStore } from '@/store/flow/flowStore';
 
 type ActionNodeProps = NodeProps<ActionNodeData>;
 

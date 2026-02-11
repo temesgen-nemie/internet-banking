@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import NodeNameInput from "./NodeNameInput";
 import TargetNodeDisplay from "./TargetNodeDisplay";
-import { useFlowStore } from "../../store/flowStore";
+import { useFlowStore } from "../../store/flow/flowStore";
 
 type PromptInspectorProps = {
   node: PromptNode;

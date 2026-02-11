@@ -6,11 +6,10 @@ import {
   Bolt,
   Code2,
   FileUp,
-  Filter,
   MessageSquare,
   PlayCircle,
 } from "lucide-react";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +49,7 @@ export default function NodeToolbar() {
   }, [rfInstance]);
 
   const handleAddNode = useCallback(
-    (type: "prompt" | "action" | "script" | "start" | "condition" | "funnel") => {
+    (type: "prompt" | "action" | "script" | "start" | "condition") => {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
@@ -61,8 +60,6 @@ export default function NodeToolbar() {
           ? { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] }
           : type === "condition"
           ? { name: "", nextNode: { routes: [], default: "" } }
-          : type === "funnel"
-          ? { nextNode: "" }
           : { flowName: "", entryNode: "" };
 
       addNode({
@@ -78,7 +75,7 @@ export default function NodeToolbar() {
 
   const handleDragStart = (
     event: React.DragEvent<HTMLButtonElement>,
-    nodeType: "prompt" | "action" | "script" | "start" | "condition" | "funnel"
+    nodeType: "prompt" | "action" | "script" | "start" | "condition"
   ) => {
     if (nodeType === "start" && hasStart) return;
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -136,17 +133,6 @@ export default function NodeToolbar() {
             </svg>
           </span>
           Condition
-        </button>
-        <button
-          className="flex items-center gap-2 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 cursor-pointer"
-          draggable
-          onDragStart={(e) => handleDragStart(e, "funnel")}
-          onClick={() => handleAddNode("funnel")}
-        >
-          <span className="rounded-sm bg-violet-700 p-1">
-            <Filter className="h-4 w-4 text-white" />
-          </span>
-          Funnel
         </button>
         <button
           className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer ${
@@ -233,12 +219,6 @@ export default function NodeToolbar() {
               onClick={() => handleAddNode("condition")}
             >
               Condition
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => handleAddNode("funnel")}
-            >
-              Funnel
             </DropdownMenuItem>
             <DropdownMenuItem
               className={`cursor-pointer ${

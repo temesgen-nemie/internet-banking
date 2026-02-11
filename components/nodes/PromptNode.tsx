@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps } from "reactflow";
-import { useFlowStore } from "@/store/flowStore";
+import { useFlowStore } from "@/store/flow/flowStore";
 
 type PromptRoute = {
   when?: { eq?: string[] };
@@ -51,7 +51,6 @@ type PromptNodeProps = NodeProps<PromptNodeData>;
 
 export default function PromptNode({ id, data, selected }: PromptNodeProps) {
   const edges = useFlowStore((s) => s.edges);
-  const nodes = useFlowStore((s) => s.nodes);
   const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
 
   return (
@@ -104,12 +103,7 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
                 const target = edges.find(e => e.source === id && e.sourceHandle === handleId)?.target;
                 if (target) {
                   const resolved = resolveTargetId(target);
-                  const targetNode = nodes.find(n => n.id === target);
-                  if (!resolved.name && targetNode?.type === "funnel") {
-                    label = "Target";
-                  } else {
-                    label = resolved.name || label;
-                  }
+                  label = resolved.name || label;
                 }
               }
 
@@ -181,8 +175,6 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
                     : (typeof data.nextNode === "string" ? data.nextNode : "");
                   if (!fallbackId) return "";
                   const resolved = resolveTargetId(fallbackId);
-                  const targetNode = nodes.find(n => n.id === fallbackId);
-                  if (!resolved.name && targetNode?.type === "funnel") return "";
                   return resolved.name || fallbackId;
                 })()}
               </span>

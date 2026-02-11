@@ -1,5 +1,5 @@
 import { NodeProps, Handle, Position } from "reactflow";
-import { useFlowStore } from "../../store/flowStore";
+import { useFlowStore } from "../../store/flow/flowStore";
 import { useShallow } from "zustand/react/shallow";
 
 export default function GroupNode({ id, data, selected }: NodeProps) {

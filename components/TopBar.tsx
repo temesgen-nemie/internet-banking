@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useFlowStore } from "../store/flowStore";
+import { useFlowStore } from "../store/flow/flowStore";
 
 export default function TopBar() {
   const nodes = useFlowStore((state) => state.nodes);
