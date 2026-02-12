@@ -176,6 +176,17 @@ export const useFlowStore = create<FlowState>()(
           if (!Array.isArray(rehydratedState.publishedGroupIds)) {
             rehydratedState.publishedGroupIds = [];
           }
+          if (Array.isArray(rehydratedState.nodes)) {
+            rehydratedState.nodes = rehydratedState.nodes.map((node) => {
+              if (node.type !== "prompt") return node;
+              const data = { ...((node.data as Record<string, unknown>) || {}) };
+              delete data.routingMode;
+              delete data.pagination;
+              delete data.hasMultiplePage;
+              delete data.indexPerPage;
+              return { ...node, data };
+            });
+          }
 
           rehydratedState.setHasHydrated(true);
         };

@@ -5,6 +5,7 @@ import ActionHeader from "./action/ActionHeader";
 import ActionRoutes from "./action/ActionRoutes";
 import BodyEditor from "./action/BodyEditor";
 import HeadersEditor from "./action/HeadersEditor";
+import WebSocketPanel, { type WsLogEntry } from "./action/WebSocketPanel";
 
 import RequestBar from "./action/RequestBar";
 import ResponseViewer from "./action/ResponseViewer";
@@ -15,15 +16,15 @@ import { useActionRequestStore, type StoredResponse } from "@/store/actionReques
 import { useFlowStore } from "@/store/flow/flowStore";
 import { fetchFlowSettings, type FlowSettingsResponse } from "@/lib/api";
 
+type SourceMode = "api" | "local" | "ws";
+type WsConnectionState = "disconnected" | "connecting" | "connected" | "error";
+
 type ActionInspectorProps = {
   node: ActionNode;
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
 };
 
-export default function ActionInspector({
-  node,
-  updateNodeData,
-}: ActionInspectorProps) {
+export default function ActionInspector({ node, updateNodeData }: ActionInspectorProps) {
   const { nodes } = useFlowStore();
   const bodyMode = (node.data.bodyMode as "json" | "soap") ?? "json";
   const [apiBodyText, setApiBodyText] = React.useState<string>(() => {
@@ -57,13 +58,8 @@ export default function ActionInspector({
     }));
   });
   const [apiBodyError, setApiBodyError] = React.useState<string | null>(null);
-  const {
-    curlTextByNodeId,
-    responsesByNodeId,
-    setCurlText,
-    setResponse,
-    updateResponse,
-  } = useActionRequestStore();
+  const { curlTextByNodeId, responsesByNodeId, setCurlText, setResponse, updateResponse } =
+    useActionRequestStore();
   const storedResponse = React.useMemo<StoredResponse>(
     () =>
       responsesByNodeId[node.id] ?? {
@@ -84,9 +80,7 @@ export default function ActionInspector({
   const flowName = React.useMemo(() => {
     const current = nodes.find((n) => n.id === node.id) ?? node;
     const currentParent =
-      "parentNode" in current
-        ? (current as { parentNode?: string | null }).parentNode
-        : undefined;
+      "parentNode" in current ? (current as { parentNode?: string | null }).parentNode : undefined;
     let parentId = currentParent ?? null;
     let groupId = parentId ?? null;
     while (parentId) {
@@ -98,9 +92,7 @@ export default function ActionInspector({
     if (groupId) {
       const children = nodes.filter((n) => n.parentNode === groupId);
       const startNode = children.find((n) => n.type === "start");
-      return (
-        (startNode?.data as { flowName?: string } | undefined)?.flowName ?? ""
-      );
+      return (startNode?.data as { flowName?: string } | undefined)?.flowName ?? "";
     }
     return (node.data as { flowName?: string } | undefined)?.flowName ?? "";
   }, [node, nodes]);
@@ -147,11 +139,49 @@ export default function ActionInspector({
       updateNodeData(node.id, { endpoint: nextEndpoint });
     }
   }, [baseUrl, node.data.endpoint, node.id, updateNodeData]);
-  const [sourceMode, setSourceMode] = React.useState<"api" | "local">(
-    (node.data.requestSource as "api" | "local") ?? "api"
+  const [sourceMode, setSourceMode] = React.useState<SourceMode>(() => {
+    const initial = String(node.data.requestSource ?? "");
+    return initial === "local" || initial === "ws" || initial === "api" ? initial : "api";
+  });
+  const wsRef = React.useRef<WebSocket | null>(null);
+  const activeNodeIdRef = React.useRef(node.id);
+  const [wsConnectionState, setWsConnectionState] =
+    React.useState<WsConnectionState>("disconnected");
+  const [wsUrl, setWsUrl] = React.useState(String(node.data.wsUrl ?? ""));
+  const [wsProtocolsText, setWsProtocolsText] = React.useState(() =>
+    Array.isArray(node.data.wsProtocols)
+      ? node.data.wsProtocols.map((value) => String(value ?? "")).join(", ")
+      : ""
   );
+  const [wsDraftMessage, setWsDraftMessage] = React.useState(String(node.data.wsMessage ?? ""));
+  const [wsMessages, setWsMessages] = React.useState<WsLogEntry[]>(() => {
+    const initialLastMessage = String(node.data.wsLastMessage ?? "").trim();
+    if (!initialLastMessage) return [];
+    return [
+      {
+        id: `ws-initial-${node.id}`,
+        direction: "incoming",
+        message: initialLastMessage,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ];
+  });
+  const latestWsIncomingMessage = React.useMemo(() => {
+    for (let idx = wsMessages.length - 1; idx >= 0; idx -= 1) {
+      const entry = wsMessages[idx];
+      if (entry.direction === "incoming") return entry.message;
+    }
+    return String(node.data.wsLastMessage ?? "");
+  }, [node.data.wsLastMessage, wsMessages]);
   const [fieldSearchQuery, setFieldSearchQuery] = React.useState("");
-  const curlText = curlTextByNodeId[node.id] ?? "";
+  const resolvedCurlText = curlTextByNodeId[node.id] ?? String(node.data.curl ?? "");
+
+  React.useEffect(() => {
+    if (curlTextByNodeId[node.id] !== undefined) return;
+    const existingCurl = String(node.data.curl ?? "");
+    if (!existingCurl) return;
+    setCurlText(node.id, existingCurl);
+  }, [curlTextByNodeId, node.id, node.data.curl, setCurlText]);
 
   const [paramPairs, setParamPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
@@ -177,20 +207,17 @@ export default function ActionInspector({
     const fieldsRaw = Array.isArray(node.data.fields)
       ? node.data.fields.map((value) => String(value ?? ""))
       : node.data.field !== undefined
-      ? [String(node.data.field)]
-      : [];
+        ? [String(node.data.field)]
+        : [];
     const outputVarsRaw = Array.isArray(node.data.outputVars)
       ? node.data.outputVars.map((value) => String(value ?? ""))
       : node.data.outputVar !== undefined
-      ? [String(node.data.outputVar)]
-      : [];
+        ? [String(node.data.outputVar)]
+        : [];
 
     const count = Math.max(fieldsRaw.length, outputVarsRaw.length, 1);
     const fields = Array.from({ length: count }, (_, i) => fieldsRaw[i] ?? "");
-    const outputVars = Array.from(
-      { length: count },
-      (_, i) => outputVarsRaw[i] ?? fields[i] ?? ""
-    );
+    const outputVars = Array.from({ length: count }, (_, i) => outputVarsRaw[i] ?? fields[i] ?? "");
 
     return { fields, outputVars };
   }, [node.data.fields, node.data.field, node.data.outputVars, node.data.outputVar]);
@@ -291,21 +318,21 @@ export default function ActionInspector({
   const availablePersistedFields = React.useMemo(() => {
     // Helper to find the outermost parent group ID
     const findOutermostParent = (nodeId: string): string | null => {
-      let current = nodes.find(n => n.id === nodeId);
-      let outermost = null;
+      let current = nodes.find((n) => n.id === nodeId);
+      let outermost: string | null = null;
       while (current && current.parentNode) {
         outermost = current.parentNode;
-        current = nodes.find(n => n.id === current?.parentNode);
+        current = nodes.find((n) => n.id === current?.parentNode);
       }
       return outermost;
     };
 
     const outermostParentId = findOutermostParent(node.id);
-    
-    // Filter nodes: 
+
+    // Filter nodes:
     // If we are in a group, only show nodes in that same top-level group.
     // If we are at root, show only root nodes (nodes without parentNode).
-    const relevantNodes = nodes.filter(n => {
+    const relevantNodes = nodes.filter((n) => {
       if (outermostParentId) {
         // Node belongs to the same flow if its outermost parent is the same
         return findOutermostParent(n.id) === outermostParentId || n.id === outermostParentId;
@@ -339,7 +366,7 @@ export default function ActionInspector({
     if (!fieldSearchQuery.trim()) return sorted;
 
     const query = fieldSearchQuery.toLowerCase();
-    return sorted.filter(f => f.toLowerCase().includes(query));
+    return sorted.filter((f) => f.toLowerCase().includes(query));
   }, [nodes, node.id, fieldSearchQuery]);
 
   React.useEffect(() => {
@@ -350,13 +377,55 @@ export default function ActionInspector({
   }, [node.data.dataSource, node.id, updateNodeData]);
 
   React.useEffect(() => {
-    if (!node.data.requestSource) {
-      updateNodeData(node.id, { requestSource: "api" });
+    const requestSource = String(node.data.requestSource ?? "");
+    if (requestSource === "api" || requestSource === "local" || requestSource === "ws") {
+      setSourceMode(requestSource);
+      return;
     }
+    setSourceMode("api");
+    updateNodeData(node.id, { requestSource: "api" });
   }, [node.data.requestSource, node.id, updateNodeData]);
 
+  React.useEffect(() => {
+    if (activeNodeIdRef.current === node.id) return;
+    activeNodeIdRef.current = node.id;
+    if (wsRef.current) {
+      wsRef.current.close(1000, "Node changed");
+      wsRef.current = null;
+    }
+    setWsConnectionState("disconnected");
+    setWsUrl(String(node.data.wsUrl ?? ""));
+    setWsProtocolsText(
+      Array.isArray(node.data.wsProtocols)
+        ? node.data.wsProtocols.map((value) => String(value ?? "")).join(", ")
+        : ""
+    );
+    setWsDraftMessage(String(node.data.wsMessage ?? ""));
+    const initialLastMessage = String(node.data.wsLastMessage ?? "").trim();
+    setWsMessages(
+      initialLastMessage
+        ? [
+            {
+              id: `ws-initial-${node.id}`,
+              direction: "incoming",
+              message: initialLastMessage,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]
+        : []
+    );
+  }, [
+    node.data.wsLastMessage,
+    node.data.wsMessage,
+    node.data.wsProtocols,
+    node.data.wsUrl,
+    node.id,
+  ]);
+
   const syncResponseMapping = React.useCallback(
-    (pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>) => {
+    (
+      pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>
+    ) => {
       const mapping: Record<string, string> = {};
       const persistKeys: string[] = [];
       const encryptKeys: string[] = [];
@@ -367,10 +436,10 @@ export default function ActionInspector({
           if (pair.encrypt) encryptKeys.push(pair.key.trim());
         }
       });
-      updateNodeData(node.id, { 
+      updateNodeData(node.id, {
         responseMapping: mapping,
         persistResponseMappingKeys: persistKeys,
-        encryptResponseMappingKeys: encryptKeys
+        encryptResponseMappingKeys: encryptKeys,
       });
     },
     [node.id, updateNodeData]
@@ -474,9 +543,7 @@ export default function ActionInspector({
     [node.id, updateNodeData]
   );
 
-  const syncParamsToUrl = (
-    pairs: Array<{ id: string; key: string; value: string }>
-  ) => {
+  const syncParamsToUrl = (pairs: Array<{ id: string; key: string; value: string }>) => {
     const currentEp = String(node.data.endpoint ?? "");
     const baseUrl = currentEp.split("?")[0];
 
@@ -511,6 +578,207 @@ export default function ActionInspector({
     } catch {}
   };
 
+  const parseWsProtocols = React.useCallback((raw: string) => {
+    const unique = new Set(
+      raw
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+    );
+    return Array.from(unique);
+  }, []);
+
+  const appendWsMessage = React.useCallback(
+    (direction: WsLogEntry["direction"], message: string) => {
+      const next: WsLogEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        direction,
+        message,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setWsMessages((current) => {
+        const merged = [...current, next];
+        if (merged.length > 200) return merged.slice(merged.length - 200);
+        return merged;
+      });
+    },
+    []
+  );
+
+  const disconnectWebSocket = React.useCallback(
+    (reason?: string) => {
+      const socket = wsRef.current;
+      if (!socket) {
+        setWsConnectionState("disconnected");
+        return;
+      }
+      if (reason) {
+        appendWsMessage("system", reason);
+      }
+      socket.close(1000, reason ?? "Client disconnected");
+    },
+    [appendWsMessage]
+  );
+
+  const connectWebSocket = React.useCallback(() => {
+    const targetUrl = wsUrl.trim();
+    if (!targetUrl) {
+      updateResponse(node.id, { error: "WebSocket URL is required." });
+      return;
+    }
+    if (!/^wss?:\/\//i.test(targetUrl)) {
+      updateResponse(node.id, { error: "WebSocket URL must start with ws:// or wss://." });
+      return;
+    }
+
+    if (wsRef.current) {
+      wsRef.current.close(1000, "Reconnect");
+      wsRef.current = null;
+    }
+
+    const protocols = parseWsProtocols(wsProtocolsText);
+    const messageFromNode = wsDraftMessage;
+    updateNodeData(node.id, {
+      requestSource: "ws",
+      wsUrl: targetUrl,
+      wsProtocols: protocols,
+      wsMessage: messageFromNode,
+    });
+
+    setResponse(node.id, {
+      status: null,
+      statusText: "",
+      headers: {},
+      body: "",
+      error: null,
+    });
+    setWsConnectionState("connecting");
+    appendWsMessage("system", `Connecting to ${targetUrl}`);
+
+    try {
+      const socket =
+        protocols.length > 0 ? new WebSocket(targetUrl, protocols) : new WebSocket(targetUrl);
+      wsRef.current = socket;
+
+      socket.onopen = () => {
+        setWsConnectionState("connected");
+        updateResponse(node.id, { error: null });
+        appendWsMessage("system", "Connected");
+      };
+
+      socket.onmessage = (event) => {
+        const onText = (value: string) => {
+          appendWsMessage("incoming", value);
+          updateNodeData(node.id, { wsLastMessage: value });
+          updateResponse(node.id, {
+            status: null,
+            statusText: "",
+            headers: {},
+            body: value,
+            error: null,
+          });
+        };
+
+        if (typeof event.data === "string") {
+          onText(event.data);
+          return;
+        }
+        if (event.data instanceof Blob) {
+          event.data
+            .text()
+            .then((value) => onText(value))
+            .catch(() => onText("[binary message]"));
+          return;
+        }
+        if (event.data instanceof ArrayBuffer) {
+          const decoder = new TextDecoder();
+          onText(decoder.decode(event.data));
+          return;
+        }
+        onText(String(event.data));
+      };
+
+      socket.onerror = () => {
+        setWsConnectionState("error");
+        updateResponse(node.id, { error: "WebSocket connection error." });
+        appendWsMessage("system", "WebSocket error");
+      };
+
+      socket.onclose = (event) => {
+        wsRef.current = null;
+        setWsConnectionState("disconnected");
+        const details = event.reason ? `${event.code} - ${event.reason}` : String(event.code);
+        appendWsMessage("system", `Disconnected (${details})`);
+      };
+    } catch (error) {
+      setWsConnectionState("error");
+      updateResponse(node.id, {
+        error: error instanceof Error ? error.message : "Failed to open WebSocket connection.",
+      });
+      appendWsMessage("system", "Failed to connect");
+    }
+  }, [
+    appendWsMessage,
+    node.id,
+    parseWsProtocols,
+    setResponse,
+    updateNodeData,
+    updateResponse,
+    wsDraftMessage,
+    wsProtocolsText,
+    wsUrl,
+  ]);
+
+  const sendWebSocketMessage = React.useCallback(() => {
+    const socket = wsRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      updateResponse(node.id, { error: "WebSocket is not connected." });
+      return;
+    }
+    const payload = wsDraftMessage;
+    try {
+      socket.send(payload);
+      appendWsMessage("outgoing", payload);
+      updateNodeData(node.id, {
+        requestSource: "ws",
+        wsUrl,
+        wsProtocols: parseWsProtocols(wsProtocolsText),
+        wsMessage: payload,
+      });
+      updateResponse(node.id, { error: null });
+    } catch (error) {
+      updateResponse(node.id, {
+        error: error instanceof Error ? error.message : "Failed to send WebSocket message.",
+      });
+    }
+  }, [
+    appendWsMessage,
+    node.id,
+    parseWsProtocols,
+    updateNodeData,
+    updateResponse,
+    wsDraftMessage,
+    wsProtocolsText,
+    wsUrl,
+  ]);
+
+  React.useEffect(() => {
+    if (sourceMode !== "ws" && wsRef.current) {
+      wsRef.current.close(1000, "Switched source mode");
+      wsRef.current = null;
+      setWsConnectionState("disconnected");
+    }
+  }, [sourceMode]);
+
+  React.useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close(1000, "Inspector unmounted");
+        wsRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       <ActionHeader
@@ -532,6 +800,9 @@ export default function ActionInspector({
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
           onClick={() => {
+            if (sourceMode === "ws") {
+              disconnectWebSocket("Switched to API mode");
+            }
             setSourceMode("api");
             updateNodeData(node.id, { requestSource: "api" });
           }}
@@ -545,11 +816,27 @@ export default function ActionInspector({
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
           onClick={() => {
+            if (sourceMode === "ws") {
+              disconnectWebSocket("Switched to Local Storage mode");
+            }
             setSourceMode("local");
             updateNodeData(node.id, { requestSource: "local" });
           }}
         >
           From Local Storage
+        </button>
+        <button
+          className={`px-3 py-1 text-xs font-medium rounded-md ${
+            sourceMode === "ws"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+          onClick={() => {
+            setSourceMode("ws");
+            updateNodeData(node.id, { requestSource: "ws" });
+          }}
+        >
+          From WebSocket
         </button>
       </div>
 
@@ -560,7 +847,7 @@ export default function ActionInspector({
             <RequestBar
               method={String(node.data.method ?? "POST")}
               endpoint={String(node.data.endpoint ?? "")}
-              curlText={curlText}
+              curlText={resolvedCurlText}
               isSending={isSending}
               baseUrlToken={baseUrl ? "baseUrl" : undefined}
               baseUrlValue={baseUrl || undefined}
@@ -569,28 +856,27 @@ export default function ActionInspector({
                 const normalizedBase = baseUrl.replace(/\/+$/, "");
                 let nextEndpoint = currentEndpoint;
                 if (normalizedBase && currentEndpoint.startsWith(normalizedBase)) {
-                  nextEndpoint = currentEndpoint
-                    .slice(normalizedBase.length)
-                    .replace(/^\/+/, "");
+                  nextEndpoint = currentEndpoint.slice(normalizedBase.length).replace(/^\/+/, "");
                 }
                 setBaseUrl("");
                 updateNodeData(node.id, { endpoint: nextEndpoint });
               }}
               onMethodChange={(value) => updateNodeData(node.id, { method: value })}
-              onEndpointChange={(value) =>
-                updateNodeData(node.id, { endpoint: value })
-              }
-              onCurlChange={(value) => setCurlText(node.id, value)}
+              onEndpointChange={(value) => updateNodeData(node.id, { endpoint: value })}
+              onCurlChange={(value) => {
+                setCurlText(node.id, value);
+                updateNodeData(node.id, { curl: value });
+              }}
               onImportCurl={() => {
-                const parsed = parseCurl(curlText);
+                const parsed = parseCurl(resolvedCurlText);
                 if (!parsed) {
                   updateResponse(node.id, {
-                    error:
-                      "Invalid curl input. Paste a curl command that starts with 'curl'.",
+                    error: "Invalid curl input. Paste a curl command that starts with 'curl'.",
                   });
                   return;
                 }
 
+                updateNodeData(node.id, { curl: resolvedCurlText });
                 updateNodeData(node.id, { method: parsed.method });
                 updateNodeData(node.id, { endpoint: parsed.url });
                 syncUrlToParams(parsed.url);
@@ -605,7 +891,7 @@ export default function ActionInspector({
 
                 if (parsed.body) {
                   const trimmed = parsed.body.trim();
-                  const looksXml = trimmed.startsWith("<")
+                  const looksXml = trimmed.startsWith("<");
                   if (looksXml) {
                     updateNodeData(node.id, {
                       bodyMode: "soap",
@@ -621,9 +907,7 @@ export default function ActionInspector({
                       setApiBodyError(null);
                       updateNodeData(node.id, { apiBody: parsedBody });
                     } catch (err) {
-                      setApiBodyError(
-                        err instanceof Error ? err.message : "Invalid JSON"
-                      );
+                      setApiBodyError(err instanceof Error ? err.message : "Invalid JSON");
                     }
                   }
                 }
@@ -759,9 +1043,7 @@ export default function ActionInspector({
                     syncParamsToUrl(next);
                   }}
                   onUpdate={(id: string, key: string, value: string) => {
-                    const next = paramPairs.map((p) =>
-                      p.id === id ? { ...p, key, value } : p
-                    );
+                    const next = paramPairs.map((p) => (p.id === id ? { ...p, key, value } : p));
                     setParamPairs(next);
                     syncParamsToUrl(next);
                   }}
@@ -772,10 +1054,7 @@ export default function ActionInspector({
                 <HeadersEditor
                   headers={headerPairs}
                   onAdd={() => {
-                    const next = [
-                      ...headerPairs,
-                      { id: generateId(), key: "", value: "" },
-                    ];
+                    const next = [...headerPairs, { id: generateId(), key: "", value: "" }];
                     setHeaderPairs(next);
                   }}
                   onRemove={(id) => {
@@ -810,9 +1089,7 @@ export default function ActionInspector({
                       setApiBodyError(null);
                       updateNodeData(node.id, { apiBody: parsed });
                     } catch (err) {
-                      setApiBodyError(
-                        err instanceof Error ? err.message : "Invalid JSON"
-                      );
+                      setApiBodyError(err instanceof Error ? err.message : "Invalid JSON");
                     }
                   }}
                   onApiBodyChange={(value) => {
@@ -827,9 +1104,7 @@ export default function ActionInspector({
                       setApiBodyError(null);
                       updateNodeData(node.id, { apiBody: parsed });
                     } catch (err) {
-                      setApiBodyError(
-                        err instanceof Error ? err.message : "Invalid JSON"
-                      );
+                      setApiBodyError(err instanceof Error ? err.message : "Invalid JSON");
                     }
                   }}
                 />
@@ -860,8 +1135,6 @@ export default function ActionInspector({
                   }}
                 />
               )}
-
-
 
               {activeSection === "routing" && (
                 <ActionRoutes
@@ -915,16 +1188,12 @@ export default function ActionInspector({
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-600">
-                Data Source
-              </label>
+              <label className="text-xs font-medium text-gray-600">Data Source</label>
               <input
                 className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
                 placeholder="source"
                 value={String(node.data.dataSource ?? "")}
-                onChange={(e) =>
-                  updateNodeData(node.id, { dataSource: e.target.value })
-                }
+                onChange={(e) => updateNodeData(node.id, { dataSource: e.target.value })}
               />
             </div>
 
@@ -946,8 +1215,18 @@ export default function ActionInspector({
                       onClick={() => setFieldSearchQuery("")}
                       className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-2.5 h-2.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   )}
@@ -1003,9 +1282,7 @@ export default function ActionInspector({
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-gray-600">
-                  Fields & Output Vars
-                </label>
+                <label className="text-xs font-medium text-gray-600">Fields & Output Vars</label>
                 <button
                   type="button"
                   className="text-[11px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 font-semibold"
@@ -1057,9 +1334,7 @@ export default function ActionInspector({
                       type="button"
                       className="text-gray-400 hover:text-red-500 px-2"
                       onClick={() => {
-                        const nextFields = localFieldPairs.fields.filter(
-                          (_, i) => i !== idx
-                        );
+                        const nextFields = localFieldPairs.fields.filter((_, i) => i !== idx);
                         const nextOutputVars = localFieldPairs.outputVars.filter(
                           (_, i) => i !== idx
                         );
@@ -1080,9 +1355,7 @@ export default function ActionInspector({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-medium text-gray-600">
-                  Format
-                </label>
+                <label className="text-xs font-medium text-gray-600">Format</label>
                 <select
                   className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
                   value={String(node.data.format ?? "indexedList")}
@@ -1099,6 +1372,42 @@ export default function ActionInspector({
             </div>
           </div>
         </div>
+      )}
+
+      {sourceMode === "ws" && (
+        <>
+          <WebSocketPanel
+            url={wsUrl}
+            protocolsText={wsProtocolsText}
+            draftMessage={wsDraftMessage}
+            latestResponse={latestWsIncomingMessage}
+            isConnected={wsConnectionState === "connected"}
+            connectionState={wsConnectionState}
+            messages={wsMessages}
+            onUrlChange={(value) => {
+              setWsUrl(value);
+              updateNodeData(node.id, { wsUrl: value, requestSource: "ws" });
+            }}
+            onProtocolsChange={(value) => {
+              setWsProtocolsText(value);
+              updateNodeData(node.id, {
+                wsProtocols: parseWsProtocols(value),
+                requestSource: "ws",
+              });
+            }}
+            onDraftMessageChange={(value) => {
+              setWsDraftMessage(value);
+              updateNodeData(node.id, { wsMessage: value, requestSource: "ws" });
+            }}
+            onConnect={connectWebSocket}
+            onDisconnect={() => disconnectWebSocket("Disconnected by user")}
+            onSend={sendWebSocketMessage}
+            onClearMessages={() => {
+              setWsMessages([]);
+              updateNodeData(node.id, { wsLastMessage: "" });
+            }}
+          />
+        </>
       )}
     </div>
   );

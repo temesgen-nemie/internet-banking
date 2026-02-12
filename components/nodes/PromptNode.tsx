@@ -19,7 +19,6 @@ type PromptNodeData = {
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
-  routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
   persistSourceField?: string;
@@ -32,19 +31,6 @@ type PromptNodeData = {
   persistInputAs?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
-  hasMultiplePage?: boolean;
-  indexPerPage?: number;
-  pagination?: {
-    enabled: boolean;
-    actionNode: string;
-    pageField: string;
-    totalPagesField: string;
-    nextInput: string;
-    prevInput: string;
-    nextLabel: string;
-    prevLabel: string;
-    controlsVar: string;
-  };
 };
 
 type PromptNodeProps = NodeProps<PromptNodeData>;
@@ -52,6 +38,10 @@ type PromptNodeProps = NodeProps<PromptNodeData>;
 export default function PromptNode({ id, data, selected }: PromptNodeProps) {
   const edges = useFlowStore((s) => s.edges);
   const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
+  const isMenuMode =
+    !!data.nextNode &&
+    typeof data.nextNode === "object" &&
+    Array.isArray((data.nextNode as PromptNextNode).routes);
 
   return (
     <div
@@ -79,7 +69,7 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
       </div>
 
       {/* Menu Mode: Show Logic Rules (No Handles) */}
-      {data.routingMode === "menu" && (
+      {isMenuMode && (
         <div className="mt-3 pt-2 border-t border-gray-100 space-y-1.5">
           {/* Check if nextNode has routes (Logic Mode) */}
           {data.nextNode &&
@@ -189,7 +179,7 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
           position={Position.Bottom}
           id="fallback"
           className={`!w-2.5 !h-2.5 !border-2 !static !translate-x-0 ${
-            edges.some(e => e.source === id && (e.sourceHandle === 'fallback' || (!e.sourceHandle && (data.routingMode === 'linear' || !data.routingMode)))) 
+            edges.some(e => e.source === id && (e.sourceHandle === 'fallback' || (!e.sourceHandle && !isMenuMode))) 
               ? "!border-indigo-500 !bg-white" 
               : "!border-gray-300 !bg-white"
           }`}

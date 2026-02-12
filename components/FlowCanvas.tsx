@@ -60,9 +60,7 @@ export default function FlowCanvas() {
   } | null>(null);
   const { resolvedTheme } = useTheme();
   const backgroundDotColor =
-    resolvedTheme === "dark"
-      ? "rgba(255, 255, 255, 004)"
-      : "rgba(15, 23, 42, 0.8)";
+    resolvedTheme === "dark" ? "rgba(255, 255, 255, 004)" : "rgba(15, 23, 42, 0.8)";
   const { user } = useAuthStore();
 
   const [deleteModal, setDeleteModal] = useState<{
@@ -162,7 +160,7 @@ export default function FlowCanvas() {
         left,
       });
     },
-    [visibleNodes, setMenu],
+    [visibleNodes, setMenu]
   );
 
   const onPaneContextMenu = useCallback(
@@ -194,7 +192,7 @@ export default function FlowCanvas() {
         });
       }
     },
-    [visibleNodes, setMenu],
+    [visibleNodes, setMenu]
   );
 
   // add edge (uses current edges array)
@@ -211,11 +209,7 @@ export default function FlowCanvas() {
           // Handle Prompt Node "fallback" or "default" handle
           if (!handleId || handleId === "default" || handleId === "fallback") {
             const targetNode = nodes.find((n) => n.id === params.target);
-            if (
-              targetNode &&
-              !targetNode.data.name &&
-              targetNode.type !== "group"
-            ) {
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
               toast.error("Unnamed Target Node", {
                 description: "The target node must have a name before you can connect to it.",
                 duration: 5000,
@@ -223,32 +217,36 @@ export default function FlowCanvas() {
               return; // REJECT CONNECTION
             }
 
-            if (sourceNode.data.routingMode === "menu") {
-              const currentNextNode = (sourceNode.data.nextNode as any) || { routes: [], default: "" };
+            const currentNextNode = sourceNode.data.nextNode as
+              | { routes?: Array<Record<string, unknown>>; default?: string }
+              | string
+              | undefined;
+            const isMenuMode =
+              !!currentNextNode &&
+              typeof currentNextNode === "object" &&
+              Array.isArray(currentNextNode.routes);
+            if (isMenuMode) {
+              const nextNodeWithRoutes = currentNextNode as {
+                routes?: Array<Record<string, unknown>>;
+                default?: string;
+              };
               updateNodeData(sourceNode.id, {
                 nextNode: {
-                  ...currentNextNode,
+                  ...nextNodeWithRoutes,
                   default: params.target,
                 },
               });
             } else {
               updateNodeData(sourceNode.id, {
                 nextNode: params.target,
-                routingMode: sourceNode.data.routingMode || "linear",
               });
             }
           } else {
             const targetNode = nodes.find((n) => n.id === params.target);
 
             // VALIDATION: If connecting to a Menu Branch Group, check for Start node
-            if (
-              targetNode &&
-              targetNode.type === "group" &&
-              targetNode.data.isMenuBranch
-            ) {
-              const children = nodes.filter(
-                (n) => n.parentNode === targetNode.id,
-              );
+            if (targetNode && targetNode.type === "group" && targetNode.data.isMenuBranch) {
+              const children = nodes.filter((n) => n.parentNode === targetNode.id);
               const hasStartNode = children.some((n) => n.type === "start");
 
               if (!hasStartNode) {
@@ -267,7 +265,7 @@ export default function FlowCanvas() {
               default?: string;
             }
             const nextNode = sourceNode.data.nextNode as PromptNextNode;
-            
+
             // Explicitly check for routes array
             if (nextNode && typeof nextNode === "object" && Array.isArray(nextNode.routes)) {
               const routePart = handleId.split("-")[1];
@@ -279,15 +277,10 @@ export default function FlowCanvas() {
                 let finalName = "";
 
                 // SYNC LOGIC: If connecting to a Menu Branch Group
-                if (
-                  targetNode &&
-                  targetNode.type === "group" &&
-                  targetNode.data.isMenuBranch
-                ) {
+                if (targetNode && targetNode.type === "group" && targetNode.data.isMenuBranch) {
                   // ... Group Sync Logic ...
                   const targetName = targetNode.data.name;
-                  const isDefaultTargetName =
-                    !targetName || targetName === "Untitled Group";
+                  const isDefaultTargetName = !targetName || targetName === "Untitled Group";
 
                   finalName =
                     route.gotoFlow ||
@@ -299,17 +292,12 @@ export default function FlowCanvas() {
                   updateNodeData(targetNode.id, { name: finalName });
 
                   // Update Internal Start Node flowName
-                  const children = nodes.filter(
-                    (n) => n.parentNode === targetNode.id,
-                  );
+                  const children = nodes.filter((n) => n.parentNode === targetNode.id);
                   const startNode = children.find((n) => n.type === "start");
                   if (startNode) {
                     updateNodeData(startNode.id, { flowName: finalName });
                   }
-                } else if (
-                  targetNode &&
-                  targetNode.type !== "group"
-                ) {
+                } else if (targetNode && targetNode.type !== "group") {
                   // NEW: Rename non-group target node to match the route's value
                   // We prioritize ONLY gotoFlow as per user request
                   const newName = route.gotoFlow;
@@ -327,8 +315,7 @@ export default function FlowCanvas() {
                   // Fallback / legacy non-branch
                   finalName =
                     route.gotoFlow ||
-                    (targetNode?.data.name &&
-                    targetNode.data.name !== "Untitled Group"
+                    (targetNode?.data.name && targetNode.data.name !== "Untitled Group"
                       ? targetNode.data.name
                       : "");
                 }
@@ -352,11 +339,7 @@ export default function FlowCanvas() {
           // Check if it's the default handle
           if (handleId === "default") {
             const targetNode = nodes.find((n) => n.id === params.target);
-            if (
-              targetNode &&
-              !targetNode.data.name &&
-              targetNode.type !== "group"
-            ) {
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
               toast.error("Unnamed Target Node", {
                 description: "The target node must have a name before you can connect to it.",
                 duration: 5000,
@@ -388,11 +371,7 @@ export default function FlowCanvas() {
           const handleId = params.sourceHandle;
           if (!handleId || handleId === "default") {
             const targetNode = nodes.find((n) => n.id === params.target);
-            if (
-              targetNode &&
-              !targetNode.data.name &&
-              targetNode.type !== "group"
-            ) {
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
               toast.error("Unnamed Target Node", {
                 description: "The target node must have a name before you can connect to it.",
                 duration: 5000,
@@ -420,74 +399,66 @@ export default function FlowCanvas() {
         }
         // 4. Condition Routes
         else if (sourceNode && sourceNode.type === "condition") {
-             const handleId = params.sourceHandle;
-             if (handleId === "default") {
-                const targetNode = nodes.find((n) => n.id === params.target);
-                if (
-                  targetNode &&
-                  !targetNode.data.name &&
-                  targetNode.type !== "group"
-                ) {
-                  toast.error("Unnamed Target Node", {
-                    description: "The target node must have a name before you can connect to it.",
-                    duration: 5000,
-                  });
-                  return; // REJECT CONNECTION
-                }
-                updateNodeData(sourceNode.id, {
-                    nextNode: {
-                        ...(sourceNode.data.nextNode as object || {}),
-                        default: params.target
-                    }
-                });
-             } else {
-                 // It's a specific route handle (route-0, route-1)
-                 interface ConditionRoute {
-                    goto?: string;
-                    when?: any;
-                 }
-                 interface ConditionNext {
-                    routes?: ConditionRoute[];
-                    default?: string;
-                 }
-                 
-                 const nextNode = sourceNode.data.nextNode as ConditionNext;
-                 const routeIdx = parseInt(handleId.split("-")[1]);
-                 
-                 if (nextNode && nextNode.routes && nextNode.routes[routeIdx]) {
-                     const newRoutes = [...nextNode.routes];
-                     
-                     // Helper: Resolve Target Name
-                     const targetNode = nodes.find(n => n.id === params.target);
-                     let targetName = targetNode?.data.name; 
-                     
-                     // Use ID if no name
-                     if (!targetName || targetName === "Untitled Group") {
-                         targetName = params.target; 
-                     }
-                     
-                     newRoutes[routeIdx] = {
-                         ...newRoutes[routeIdx],
-                         goto: String(targetName)
-                     };
+          const handleId = params.sourceHandle;
+          if (handleId === "default") {
+            const targetNode = nodes.find((n) => n.id === params.target);
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+              toast.error("Unnamed Target Node", {
+                description: "The target node must have a name before you can connect to it.",
+                duration: 5000,
+              });
+              return; // REJECT CONNECTION
+            }
+            updateNodeData(sourceNode.id, {
+              nextNode: {
+                ...((sourceNode.data.nextNode as object) || {}),
+                default: params.target,
+              },
+            });
+          } else {
+            // It's a specific route handle (route-0, route-1)
+            interface ConditionRoute {
+              goto?: string;
+              when?: any;
+            }
+            interface ConditionNext {
+              routes?: ConditionRoute[];
+              default?: string;
+            }
 
-                     updateNodeData(sourceNode.id, {
-                         nextNode: { ...nextNode, routes: newRoutes }
-                     });
-                 }
-             }
+            const nextNode = sourceNode.data.nextNode as ConditionNext;
+            const routeIdx = parseInt(handleId.split("-")[1]);
+
+            if (nextNode && nextNode.routes && nextNode.routes[routeIdx]) {
+              const newRoutes = [...nextNode.routes];
+
+              // Helper: Resolve Target Name
+              const targetNode = nodes.find((n) => n.id === params.target);
+              let targetName = targetNode?.data.name;
+
+              // Use ID if no name
+              if (!targetName || targetName === "Untitled Group") {
+                targetName = params.target;
+              }
+
+              newRoutes[routeIdx] = {
+                ...newRoutes[routeIdx],
+                goto: String(targetName),
+              };
+
+              updateNodeData(sourceNode.id, {
+                nextNode: { ...nextNode, routes: newRoutes },
+              });
+            }
+          }
         }
       } else {
         // If no specific handle ID is used (default/legacy handles)
 
-         // Prompt Node Logic (Linear Mode/Default)
+        // Prompt Node Logic (Linear Mode/Default)
         if (sourceNode && sourceNode.type === "prompt") {
           const targetNode = nodes.find((n) => n.id === params.target);
-          if (
-            targetNode &&
-            !targetNode.data.name &&
-            targetNode.type !== "group"
-          ) {
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
             toast.error("Unnamed Target Node", {
               description: "The target node must have a name before you can connect to it.",
               duration: 5000,
@@ -499,11 +470,7 @@ export default function FlowCanvas() {
         // Action Node Logic (legacy fallback or default handle if no ID)
         else if (sourceNode && sourceNode.type === "action") {
           const targetNode = nodes.find((n) => n.id === params.target);
-          if (
-            targetNode &&
-            !targetNode.data.name &&
-            targetNode.type !== "group"
-          ) {
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
             toast.error("Unnamed Target Node", {
               description: "The target node must have a name before you can connect to it.",
               duration: 5000,
@@ -515,11 +482,7 @@ export default function FlowCanvas() {
         // Script Node Logic
         else if (sourceNode && sourceNode.type === "script") {
           const targetNode = nodes.find((n) => n.id === params.target);
-          if (
-            targetNode &&
-            !targetNode.data.name &&
-            targetNode.type !== "group"
-          ) {
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
             toast.error("Unnamed Target Node", {
               description: "The target node must have a name before you can connect to it.",
               duration: 5000,
@@ -531,11 +494,7 @@ export default function FlowCanvas() {
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
           const targetNode = nodes.find((n) => n.id === params.target);
-          if (
-            targetNode &&
-            !targetNode.data.name &&
-            targetNode.type !== "group"
-          ) {
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
             toast.error("Unnamed Entry Node", {
               description: "The entry node must have a name before you can connect to it.",
               duration: 5000,
@@ -549,7 +508,7 @@ export default function FlowCanvas() {
       // Finally, add the edge if we haven't returned early (rejected)
       setEdges(addEdge(params, edges));
     },
-    [edges, setEdges, nodes, updateNodeData, removeEdges],
+    [edges, setEdges, nodes, updateNodeData, removeEdges]
   );
 
   // Handle edge deletion logic via store action
@@ -557,19 +516,19 @@ export default function FlowCanvas() {
     (deletedEdges: Edge[]) => {
       removeEdges(deletedEdges.map((e) => e.id));
     },
-    [removeEdges],
+    [removeEdges]
   );
 
   // node drag / move / selection: apply change objects to current `nodes`
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes(applyNodeChanges(changes, nodes)),
-    [nodes, setNodes],
+    [nodes, setNodes]
   );
 
   // edge changes: apply change objects to current `edges`
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => setEdges(applyEdgeChanges(changes, edges)),
-    [edges, setEdges],
+    [edges, setEdges]
   );
 
   // selection
@@ -577,7 +536,7 @@ export default function FlowCanvas() {
     ({ nodes }: { nodes: Node[] }) => {
       setSelectedNodeId(nodes[0]?.id ?? null);
     },
-    [setSelectedNodeId],
+    [setSelectedNodeId]
   );
 
   // also select node on click (helps when selectionChange doesn't fire)
@@ -586,7 +545,7 @@ export default function FlowCanvas() {
       setSelectedNodeId(node.id);
       setMenu(null);
     },
-    [setSelectedNodeId],
+    [setSelectedNodeId]
   );
 
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
@@ -604,9 +563,7 @@ export default function FlowCanvas() {
       if (!type) return;
 
       const hasStartInView = nodes.some(
-        (n) =>
-          n.type === "start" &&
-          (n.parentNode || null) === (currentSubflowId || null),
+        (n) => n.type === "start" && (n.parentNode || null) === (currentSubflowId || null)
       );
       if (type === "start" && hasStartInView) {
         toast.error("Only one Start node is allowed per flow.");
@@ -624,9 +581,9 @@ export default function FlowCanvas() {
 
       let data: Record<string, unknown> = {};
       if (type === "prompt") {
-        data = { message: "", routingMode: "menu" };
+        data = { message: "", nextNode: { routes: [], default: "" } };
       } else if (type === "action") {
-        data = { endpoint: "" };
+        data = { endpoint: "", requestSource: "api" };
       } else if (type === "script") {
         data = { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] };
       } else if (type === "start") {
@@ -645,7 +602,7 @@ export default function FlowCanvas() {
         parentNode: currentSubflowId ?? undefined,
       });
     },
-    [addNode, currentSubflowId, nodes],
+    [addNode, currentSubflowId, nodes]
   );
 
   // open inspector on double-click
@@ -677,7 +634,7 @@ export default function FlowCanvas() {
         openInspector(node.id);
       }
     },
-    [openInspector, enterSubflow],
+    [openInspector, enterSubflow]
   );
 
   // Update inspector position while dragging
@@ -688,7 +645,7 @@ export default function FlowCanvas() {
         openInspector(node.id);
       }
     },
-    [selectedNodeId, inspectorOpen, openInspector],
+    [selectedNodeId, inspectorOpen, openInspector]
   );
 
   // Close inspector when clicking on the empty canvas pane
@@ -719,9 +676,7 @@ export default function FlowCanvas() {
       if (e.repeat) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
-        const selectedNodeIds = visibleNodes
-          .filter((n) => n.selected)
-          .map((n) => n.id);
+        const selectedNodeIds = visibleNodes.filter((n) => n.selected).map((n) => n.id);
         const selectedEdges = visibleEdges.filter((edge) => edge.selected);
 
         // Handle Node Deletion
@@ -740,18 +695,14 @@ export default function FlowCanvas() {
         const target = e.target as HTMLElement | null;
         if (
           target &&
-          (target.tagName === "INPUT" ||
-            target.tagName === "TEXTAREA" ||
-            target.isContentEditable)
+          (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
         ) {
           return;
         }
         e.preventDefault();
         const visibleNodeIds = new Set(
           nodes
-            .filter(
-              (n) => (n.parentNode || null) === (currentSubflowId || null)
-            )
+            .filter((n) => (n.parentNode || null) === (currentSubflowId || null))
             .map((n) => n.id)
         );
         setNodes((prev) =>
@@ -763,8 +714,7 @@ export default function FlowCanvas() {
         setEdges((prev) =>
           prev.map((e) => ({
             ...e,
-            selected:
-              visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target),
+            selected: visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target),
           }))
         );
         const firstSelected = nodes.find((n) => visibleNodeIds.has(n.id))?.id;
@@ -774,9 +724,7 @@ export default function FlowCanvas() {
           // Check if multiple are selected via internal state or just pass selection
           // ReactFlow handles selection state on nodes. We can find selected.
           // Note: visibleNodes has the 'selected' property updated by ReactFlow
-          const selected = visibleNodes
-            .filter((n) => n.selected)
-            .map((n) => n.id);
+          const selected = visibleNodes.filter((n) => n.selected).map((n) => n.id);
           if (selected.length > 0) {
             copyNodes(selected);
           }
@@ -832,11 +780,7 @@ export default function FlowCanvas() {
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      <FlowBreadcrumb
-        currentSubflowId={currentSubflowId}
-        nodes={nodes}
-        onNavigate={exitSubflow}
-      />
+      <FlowBreadcrumb currentSubflowId={currentSubflowId} nodes={nodes} onNavigate={exitSubflow} />
 
       {/* Auto-Load / Refresh Button */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
@@ -918,9 +862,7 @@ export default function FlowCanvas() {
               <button
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                 onClick={() => {
-                  const selectedIds = visibleNodes
-                    .filter((n) => n.selected)
-                    .map((n) => n.id);
+                  const selectedIds = visibleNodes.filter((n) => n.selected).map((n) => n.id);
                   openNamer(selectedIds);
                 }}
               >
@@ -1032,15 +974,10 @@ export default function FlowCanvas() {
                       onClick={async () => {
                         const groupNode = nodes.find((n) => n.id === menu.id);
                         if (!groupNode) return;
-                        const children = nodes.filter(
-                          (n) => n.parentNode === menu.id,
-                        );
-                        const startNode = children.find(
-                          (n) => n.type === "start",
-                        );
-                        const flowName = (
-                          startNode?.data as { flowName?: string } | undefined
-                        )?.flowName;
+                        const children = nodes.filter((n) => n.parentNode === menu.id);
+                        const startNode = children.find((n) => n.type === "start");
+                        const flowName = (startNode?.data as { flowName?: string } | undefined)
+                          ?.flowName;
                         if (!flowName) {
                           toast.error("Flow name not found.");
                           return;
@@ -1053,12 +990,10 @@ export default function FlowCanvas() {
                           if (!user.isAdmin) {
                             const hasPermission = await checkMyFlowPermission(
                               flowName,
-                              user.userId,
+                              user.userId
                             );
                             if (!hasPermission) {
-                              toast.error(
-                                "You don't have permission to update this flow."
-                              );
+                              toast.error("You don't have permission to update this flow.");
                               return;
                             }
                           }
@@ -1067,9 +1002,7 @@ export default function FlowCanvas() {
                           });
                         } catch (error) {
                           toast.error(
-                            error instanceof Error
-                              ? error.message
-                              : "Failed to verify permissions."
+                            error instanceof Error ? error.message : "Failed to verify permissions."
                           );
                         }
                       }}
@@ -1123,15 +1056,10 @@ export default function FlowCanvas() {
                       View Group JSON
                     </button>
                     {(() => {
-                      const children = nodes.filter(
-                        (n) => n.parentNode === menu.id,
-                      );
-                      const startNode = children.find(
-                        (n) => n.type === "start",
-                      );
-                      const flowName = (
-                        startNode?.data as { flowName?: string } | undefined
-                      )?.flowName;
+                      const children = nodes.filter((n) => n.parentNode === menu.id);
+                      const startNode = children.find((n) => n.type === "start");
+                      const flowName = (startNode?.data as { flowName?: string } | undefined)
+                        ?.flowName;
                       if (!user?.isAdmin) return null;
 
                       return (
@@ -1168,12 +1096,8 @@ export default function FlowCanvas() {
                     })()}
                     {(() => {
                       // const groupNode = nodes.find((n) => n.id === menu.id);
-                      const children = nodes.filter(
-                        (n) => n.parentNode === menu.id,
-                      );
-                      const startNode = children.find(
-                        (n) => n.type === "start",
-                      );
+                      const children = nodes.filter((n) => n.parentNode === menu.id);
+                      const startNode = children.find((n) => n.type === "start");
                       const flowName = (startNode?.data as any)?.flowName;
                       const isPublished = publishedGroupIds.includes(menu.id);
                       const isModified = modifiedGroupIds.includes(menu.id);
@@ -1220,21 +1144,16 @@ export default function FlowCanvas() {
                               }
                               try {
                                 if (!user.isAdmin) {
-                                  const hasPermission =
-                                    await checkMyFlowPermission(
-                                      flowName,
-                                      user.userId
-                                    );
+                                  const hasPermission = await checkMyFlowPermission(
+                                    flowName,
+                                    user.userId
+                                  );
                                   if (!hasPermission) {
-                                    toast.error(
-                                      "You don't have permission to update this flow."
-                                    );
+                                    toast.error("You don't have permission to update this flow.");
                                     return;
                                   }
                                 }
-                                useFlowStore
-                                  .getState()
-                                  .updatePublishedFlow(menu.id);
+                                useFlowStore.getState().updatePublishedFlow(menu.id);
                                 setMenu(null);
                               } catch (error) {
                                 toast.error(
@@ -1283,15 +1202,12 @@ export default function FlowCanvas() {
                               }
                               try {
                                 if (!user.isAdmin) {
-                                  const hasPermission =
-                                    await checkMyFlowPermission(
-                                      flowName,
-                                      user.userId
-                                    );
+                                  const hasPermission = await checkMyFlowPermission(
+                                    flowName,
+                                    user.userId
+                                  );
                                   if (!hasPermission) {
-                                    toast.error(
-                                      "You don't have permission to delete this flow."
-                                    );
+                                    toast.error("You don't have permission to delete this flow.");
                                     return;
                                   }
                                 }
@@ -1329,20 +1245,13 @@ export default function FlowCanvas() {
                     })()}
                     {(() => {
                       const groupNode = nodes.find((n) => n.id === menu.id);
-                      const children = nodes.filter(
-                        (n) => n.parentNode === menu.id,
-                      );
-                      const hasStartInChildren = children.some(
-                        (n) => n.type === "start",
-                      );
+                      const children = nodes.filter((n) => n.parentNode === menu.id);
+                      const hasStartInChildren = children.some((n) => n.type === "start");
                       const parentId = groupNode?.parentNode || null;
                       const parentHasStart = nodes.some(
-                        (n) =>
-                          n.type === "start" &&
-                          (n.parentNode || null) === (parentId || null),
+                        (n) => n.type === "start" && (n.parentNode || null) === (parentId || null)
                       );
-                      const isUngroupBlocked =
-                        hasStartInChildren && parentHasStart;
+                      const isUngroupBlocked = hasStartInChildren && parentHasStart;
 
                       return (
                         <button
@@ -1354,14 +1263,9 @@ export default function FlowCanvas() {
                           }`}
                           onClick={async () => {
                             if (isUngroupBlocked) return;
-                            const startNode = children.find(
-                              (n) => n.type === "start",
-                            );
-                            const flowName = (
-                              startNode?.data as
-                                | { flowName?: string }
-                                | undefined
-                            )?.flowName;
+                            const startNode = children.find((n) => n.type === "start");
+                            const flowName = (startNode?.data as { flowName?: string } | undefined)
+                              ?.flowName;
                             if (!flowName) {
                               toast.error("Flow name not found.");
                               return;
@@ -1372,15 +1276,12 @@ export default function FlowCanvas() {
                             }
                             try {
                               if (!user.isAdmin) {
-                                const hasPermission =
-                                  await checkMyFlowPermission(
-                                    flowName,
-                                    user.userId,
-                                  );
+                                const hasPermission = await checkMyFlowPermission(
+                                  flowName,
+                                  user.userId
+                                );
                                 if (!hasPermission) {
-                                  toast.error(
-                                    "You don't have permission to update this flow."
-                                  );
+                                  toast.error("You don't have permission to update this flow.");
                                   return;
                                 }
                               }
@@ -1498,9 +1399,7 @@ export default function FlowCanvas() {
       )}
       <FlowPermissionsDialog
         open={permissionsDialog.open}
-        onOpenChange={(open) =>
-          setPermissionsDialog((prev) => ({ ...prev, open }))
-        }
+        onOpenChange={(open) => setPermissionsDialog((prev) => ({ ...prev, open }))}
         flowName={permissionsDialog.flowName}
       />
     </div>

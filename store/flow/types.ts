@@ -34,6 +34,12 @@ export type FlowNode = {
   scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string }>;
   endpoint?: string;
   method?: string;
+  curl?: string;
+  requestSource?: "api" | "local" | "ws";
+  wsUrl?: string;
+  wsProtocols?: string[];
+  wsMessage?: string;
+  wsLastMessage?: string;
   dataSource?: string;
   field?: string;
   outputVar?: string;
@@ -46,19 +52,6 @@ export type FlowNode = {
   persistResponseMapping?: boolean;
   encryptInput?: boolean;
   responseType?: "CONTINUE" | "END";
-  hasMultiplePage?: boolean;
-  indexPerPage?: number;
-  pagination?: {
-    enabled: boolean;
-    actionNode: string;
-    pageField: string;
-    totalPagesField: string;
-    nextInput: string;
-    prevInput: string;
-    nextLabel: string;
-    prevLabel: string;
-    controlsVar: string;
-  };
   nextNode?: string | { routes?: FlowRoute[]; default?: string; defaultId?: string };
   nextNodeId?: string;
   isMainMenu?: boolean;

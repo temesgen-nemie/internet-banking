@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import NodeNameInput from "./NodeNameInput";
 import TargetNodeDisplay from "./TargetNodeDisplay";
 import { useFlowStore } from "../../store/flow/flowStore";
@@ -28,7 +28,6 @@ type PromptNodeData = {
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
-  routingMode?: string;
   nextNode?: PromptNextNode | string;
   persistByIndex?: boolean;
   persistByIndexValue?: string;
@@ -42,19 +41,6 @@ type PromptNodeData = {
   persistInputAs?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
-  hasMultiplePage?: boolean;
-  indexPerPage?: number;
-  pagination?: {
-    enabled: boolean;
-    actionNode: string;
-    pageField: string;
-    totalPagesField: string;
-    nextInput: string;
-    prevInput: string;
-    nextLabel: string;
-    prevLabel: string;
-    controlsVar: string;
-  };
   isMainMenu?: boolean;
 };
 
@@ -64,10 +50,7 @@ type PromptNode = {
   data: PromptNodeData;
 };
 
-export default function PromptInspector({
-  node,
-  updateNodeData,
-}: PromptInspectorProps) {
+export default function PromptInspector({ node, updateNodeData }: PromptInspectorProps) {
   const nodes = useFlowStore((s) => s.nodes);
   const [activeSearchIdx, setActiveSearchIdx] = useState<number | null>(null);
   const [activeFlowSearchIdx, setActiveFlowSearchIdx] = useState<number | null>(null);
@@ -80,11 +63,8 @@ export default function PromptInspector({
       n.type !== "group" &&
       n.type !== "start"
   );
-  const siblingNames = siblings
-    .map((n) => (n.data as any).name || "")
-    .filter(Boolean);
+  const siblingNames = siblings.map((n) => (n.data as any).name || "").filter(Boolean);
 
-  const publishedGroupIds = useFlowStore((s) => s.publishedGroupIds);
   const rootFlowName = useMemo(() => {
     const rootStart = nodes.find((n) => !n.parentNode && n.type === "start");
     return (rootStart?.data as any)?.flowName || "Root Flow";
@@ -93,51 +73,50 @@ export default function PromptInspector({
   const ancestorFlows = useMemo(() => {
     const list: { id: string; name: string }[] = [];
     let tempParentId = node.parentNode;
-    
+
     while (tempParentId) {
-      const parentGroup = nodes.find(n => n.id === tempParentId);
+      const parentGroup = nodes.find((n) => n.id === tempParentId);
       if (!parentGroup) break;
-      
-      const name = (parentGroup.data as any).name || (parentGroup.data as any).flowName || "Unnamed Flow";
+
+      const name =
+        (parentGroup.data as any).name || (parentGroup.data as any).flowName || "Unnamed Flow";
       list.push({ id: parentGroup.id, name });
-      
+
       tempParentId = parentGroup.parentNode;
     }
-    
+
     return list;
   }, [node.parentNode, nodes]);
 
   const allFlowNames = useMemo(() => {
-    return Array.from(new Set(ancestorFlows.map(f => f.name)));
+    return Array.from(new Set(ancestorFlows.map((f) => f.name)));
   }, [ancestorFlows]);
 
   const currentFlowName = useMemo(() => {
     const parentId = node.parentNode;
     if (!parentId) return rootFlowName;
-    
+
     // Check if parent group has a name
-    const parentGroup = nodes.find(n => n.id === parentId);
+    const parentGroup = nodes.find((n) => n.id === parentId);
     if (parentGroup && ((parentGroup.data as any).name || (parentGroup.data as any).flowName)) {
       return (parentGroup.data as any).name || (parentGroup.data as any).flowName;
     }
 
     // Check for start node in the same group
-    const startNode = nodes.find(
-      (n) => n.parentNode === parentId && n.type === "start"
-    );
+    const startNode = nodes.find((n) => n.parentNode === parentId && n.type === "start");
     return (startNode?.data?.flowName as string) || "Unnamed Flow";
   }, [node.parentNode, nodes, rootFlowName]);
 
-  const syncMessage = (
-    currentMessage: string,
-    routes: PromptRoute[]
-  ): string => {
+  const isMenuMode =
+    !!node.data.nextNode &&
+    typeof node.data.nextNode === "object" &&
+    Array.isArray((node.data.nextNode as PromptNextNode).routes);
+
+  const syncMessage = (currentMessage: string, routes: PromptRoute[]): string => {
     const lines = currentMessage.split("\n");
     const introLines: string[] = [];
 
-    const routeInputs = new Set(
-      routes.map((r) => r.when?.eq?.[1]).filter((v): v is string => !!v)
-    );
+    const routeInputs = new Set(routes.map((r) => r.when?.eq?.[1]).filter((v): v is string => !!v));
 
     const routeEndpoints = new Set(
       routes.map((r) => (r.gotoFlow || "").trim().toLowerCase()).filter(Boolean)
@@ -147,22 +126,25 @@ export default function PromptInspector({
       const trimmed = line.trim();
       const trimmedLower = trimmed.toLowerCase();
       const firstWord = trimmed.split(/[\s\.]/, 1)[0];
-      
+
       const isInputPrefix = /^[\d*#]+([\.\s]|$)/.test(trimmed);
       const isInputMatch = routeInputs.has(firstWord) || routeInputs.has(trimmed);
-      
+
       const containsGoBack = trimmedLower.endsWith("go back");
       const containsMainMenu = trimmedLower.endsWith("main menu");
 
       // Check if line exactly matches or is a prefix of a known route target (e.g. "bal" vs "balance")
       // This prevents "spiral" duplication when typing a target name before an input
-      const matchesTarget = routeEndpoints.has(trimmedLower) || 
-                          Array.from(routeEndpoints).some(target => target.startsWith(trimmedLower) || trimmedLower.startsWith(target));
+      const matchesTarget =
+        routeEndpoints.has(trimmedLower) ||
+        Array.from(routeEndpoints).some(
+          (target) => target.startsWith(trimmedLower) || trimmedLower.startsWith(target)
+        );
 
       if (isInputPrefix || isInputMatch || containsGoBack || containsMainMenu || matchesTarget) {
         break;
       }
-      
+
       const isSeparatorOnly = /^[.\-\s]+$/.test(trimmed);
       if (isSeparatorOnly && introLines.length > 0) {
         break;
@@ -192,9 +174,7 @@ export default function PromptInspector({
       })
       .filter((s) => !!s);
 
-    return intro
-      ? `${intro}\n\n${routingLines.join("\n")}`
-      : routingLines.join("\n");
+    return intro ? `${intro}\n\n${routingLines.join("\n")}` : routingLines.join("\n");
   };
 
   return (
@@ -214,20 +194,15 @@ export default function PromptInspector({
             value={node.data.message || ""}
             rows={8}
             placeholder="Enter message text..."
-            onChange={(e) =>
-              updateNodeData(node.id, { message: e.target.value })
-            }
+            onChange={(e) => updateNodeData(node.id, { message: e.target.value })}
           />
         </div>
 
         {/* Menu Mode: Logic Routing Rules */}
-        {(node.data.routingMode === "menu" || 
-          (!node.data.routingMode && node.data.nextNode && typeof node.data.nextNode === "object" && (node.data.nextNode as any).routes)) && (
+        {isMenuMode && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-600">
-                Routing Rules
-              </label>
+              <label className="text-xs font-medium text-gray-600">Routing Rules</label>
               <button
                 onClick={() => {
                   let currentNextNode = node.data.nextNode;
@@ -236,10 +211,7 @@ export default function PromptInspector({
                   }
 
                   const routes = currentNextNode.routes || [];
-                  const newRoutes = [
-                    ...routes,
-                    { when: { eq: ["{{input}}", ""] }, gotoFlow: "" },
-                  ];
+                  const newRoutes = [...routes, { when: { eq: ["{{input}}", ""] }, gotoFlow: "" }];
 
                   const newMessage = syncMessage(node.data.message || "", newRoutes);
 
@@ -269,7 +241,8 @@ export default function PromptInspector({
                   const inputValue = route.when?.eq?.[1] || "";
                   const gotoFlow = (route as any).gotoFlow || (route as any).goto || "";
                   const isGoBack = (route as any).isGoBack || false;
-                  const isToMainMenu = (route as any).toMainMenu || (route as any).isMainMenu || false;
+                  const isToMainMenu =
+                    (route as any).toMainMenu || (route as any).isMainMenu || false;
                   const goBackTarget = (route as any).goBackTarget || "";
                   return (
                     <div
@@ -279,15 +252,9 @@ export default function PromptInspector({
                       <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                         <button
                           onClick={() => {
-                            const nextNode = node.data
-                              .nextNode as PromptNextNode;
-                            const newRoutes = (nextNode.routes || []).filter(
-                              (_, i) => i !== idx
-                            );
-                            const newMessage = syncMessage(
-                              node.data.message || "",
-                              newRoutes
-                            );
+                            const nextNode = node.data.nextNode as PromptNextNode;
+                            const newRoutes = (nextNode.routes || []).filter((_, i) => i !== idx);
+                            const newMessage = syncMessage(node.data.message || "", newRoutes);
                             updateNodeData(node.id, {
                               message: newMessage,
                               nextNode: { ...nextNode, routes: newRoutes },
@@ -334,17 +301,13 @@ export default function PromptInspector({
                               className="w-full text-sm border-b-2 border-gray-100 bg-transparent py-1.5 focus:outline-none focus:border-indigo-500 placeholder-gray-300 font-mono text-center text-gray-900 transition-colors"
                               value={inputValue}
                               onChange={(e) => {
-                                const nextNode = node.data
-                                  .nextNode as PromptNextNode;
+                                const nextNode = node.data.nextNode as PromptNextNode;
                                 const newRoutes = [...(nextNode.routes || [])];
                                 newRoutes[idx] = {
                                   ...newRoutes[idx],
                                   when: { eq: ["{{input}}", e.target.value] },
                                 };
-                                const newMessage = syncMessage(
-                                  node.data.message || "",
-                                  newRoutes
-                                );
+                                const newMessage = syncMessage(node.data.message || "", newRoutes);
                                 updateNodeData(node.id, {
                                   message: newMessage,
                                   nextNode: { ...nextNode, routes: newRoutes },
@@ -369,31 +332,31 @@ export default function PromptInspector({
                                   d="M13 7l5 5m0 0l-5 5m5-5H6"
                                 />
                               </svg>
-                              {isGoBack ? "Go Back Label" : isToMainMenu ? "Main Menu Label" : "Goto Flow/Node"}
+                              {isGoBack
+                                ? "Go Back Label"
+                                : isToMainMenu
+                                  ? "Main Menu Label"
+                                  : "Goto Flow/Node"}
                             </label>
                             <input
                               className="w-full text-sm border-b-2 border-gray-100 bg-transparent py-1.5 focus:outline-none focus:border-indigo-500 placeholder-gray-300 text-gray-900 transition-colors"
                               value={gotoFlow}
                               onChange={(e) => {
-                                const nextNode = node.data
-                                  .nextNode as PromptNextNode;
-                                const newRoutes = [
-                                  ...(nextNode.routes || []),
-                                ];
+                                const nextNode = node.data.nextNode as PromptNextNode;
+                                const newRoutes = [...(nextNode.routes || [])];
                                 newRoutes[idx] = {
                                   ...newRoutes[idx],
                                   gotoFlow: e.target.value,
                                 };
-                                const newMessage = syncMessage(
-                                  node.data.message || "",
-                                  newRoutes
-                                );
+                                const newMessage = syncMessage(node.data.message || "", newRoutes);
                                 updateNodeData(node.id, {
                                   message: newMessage,
                                   nextNode: { ...nextNode, routes: newRoutes },
                                 });
                               }}
-                              placeholder={isGoBack ? "Go Back" : isToMainMenu ? "Main Menu" : "Target Name"}
+                              placeholder={
+                                isGoBack ? "Go Back" : isToMainMenu ? "Main Menu" : "Target Name"
+                              }
                             />
                           </div>
                         </div>
@@ -404,34 +367,31 @@ export default function PromptInspector({
                               <input
                                 type="checkbox"
                                 checked={isGoBack}
-                                  onChange={(e) => {
-                                    const nextNode = node.data
-                                      .nextNode as PromptNextNode;
-                                    const newRoutes = [
-                                      ...(nextNode.routes || []),
-                                    ];
-                                    newRoutes[idx] = {
-                                      ...newRoutes[idx],
-                                      isGoBack: e.target.checked,
-                                      toMainMenu: e.target.checked
-                                        ? false
-                                        : (newRoutes[idx] as any).toMainMenu,
-                                      when: e.target.checked 
-                                        ? { eq: ["{{input}}", "*"] } 
-                                        : newRoutes[idx].when,
-                                    };
-                                    const newMessage = syncMessage(
-                                      node.data.message || "",
-                                      newRoutes
-                                    );
-                                    updateNodeData(node.id, {
-                                      message: newMessage,
-                                      nextNode: {
-                                        ...nextNode,
-                                        routes: newRoutes,
-                                      },
-                                    });
-                                  }}
+                                onChange={(e) => {
+                                  const nextNode = node.data.nextNode as PromptNextNode;
+                                  const newRoutes = [...(nextNode.routes || [])];
+                                  newRoutes[idx] = {
+                                    ...newRoutes[idx],
+                                    isGoBack: e.target.checked,
+                                    toMainMenu: e.target.checked
+                                      ? false
+                                      : (newRoutes[idx] as any).toMainMenu,
+                                    when: e.target.checked
+                                      ? { eq: ["{{input}}", "*"] }
+                                      : newRoutes[idx].when,
+                                  };
+                                  const newMessage = syncMessage(
+                                    node.data.message || "",
+                                    newRoutes
+                                  );
+                                  updateNodeData(node.id, {
+                                    message: newMessage,
+                                    nextNode: {
+                                      ...nextNode,
+                                      routes: newRoutes,
+                                    },
+                                  });
+                                }}
                                 className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all appearance-none border-2 checked:bg-indigo-600 checked:border-indigo-600"
                               />
                               <svg
@@ -456,34 +416,29 @@ export default function PromptInspector({
                               <input
                                 type="checkbox"
                                 checked={isToMainMenu}
-                                  onChange={(e) => {
-                                    const nextNode = node.data
-                                      .nextNode as PromptNextNode;
-                                    const newRoutes = [
-                                      ...(nextNode.routes || []),
-                                    ];
-                                    newRoutes[idx] = {
-                                      ...newRoutes[idx],
-                                      toMainMenu: e.target.checked,
-                                      isGoBack: e.target.checked
-                                        ? false
-                                        : newRoutes[idx].isGoBack,
-                                      when: e.target.checked 
-                                        ? { eq: ["{{input}}", "**"] } 
-                                        : newRoutes[idx].when,
-                                    };
-                                    const newMessage = syncMessage(
-                                      node.data.message || "",
-                                      newRoutes
-                                    );
-                                    updateNodeData(node.id, {
-                                      message: newMessage,
-                                      nextNode: {
-                                        ...nextNode,
-                                        routes: newRoutes,
-                                      },
-                                    });
-                                  }}
+                                onChange={(e) => {
+                                  const nextNode = node.data.nextNode as PromptNextNode;
+                                  const newRoutes = [...(nextNode.routes || [])];
+                                  newRoutes[idx] = {
+                                    ...newRoutes[idx],
+                                    toMainMenu: e.target.checked,
+                                    isGoBack: e.target.checked ? false : newRoutes[idx].isGoBack,
+                                    when: e.target.checked
+                                      ? { eq: ["{{input}}", "**"] }
+                                      : newRoutes[idx].when,
+                                  };
+                                  const newMessage = syncMessage(
+                                    node.data.message || "",
+                                    newRoutes
+                                  );
+                                  updateNodeData(node.id, {
+                                    message: newMessage,
+                                    nextNode: {
+                                      ...nextNode,
+                                      routes: newRoutes,
+                                    },
+                                  });
+                                }}
                                 className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all appearance-none border-2 checked:bg-indigo-600 checked:border-indigo-600"
                               />
                               <svg
@@ -547,7 +502,7 @@ export default function PromptInspector({
                                       }}
                                       placeholder="e.g. Settings"
                                     />
-                                    <button 
+                                    <button
                                       type="button"
                                       onMouseDown={(e) => {
                                         e.preventDefault();
@@ -556,8 +511,17 @@ export default function PromptInspector({
                                       }}
                                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-indigo-600 transition-colors"
                                     >
-                                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform duration-200 ${activeSearchIdx === idx ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className={`h-4 w-4 transition-transform duration-200 ${activeSearchIdx === idx ? "rotate-180" : ""}`}
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                          clipRule="evenodd"
+                                        />
                                       </svg>
                                     </button>
                                   </div>
@@ -565,58 +529,94 @@ export default function PromptInspector({
                                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                                       {(() => {
                                         const flowToSearch = route.goBackToFlow || currentFlowName;
-                                        let targetNodes = [];
-                                        
+                                        let targetNodes: string[] = [];
+
                                         if (flowToSearch === rootFlowName) {
                                           targetNodes = nodes
-                                            .filter(n => !n.parentNode && n.type !== 'start' && n.type !== 'group')
-                                            .map(n => (n.data as any).name || "")
+                                            .filter(
+                                              (n) =>
+                                                !n.parentNode &&
+                                                n.type !== "start" &&
+                                                n.type !== "group"
+                                            )
+                                            .map((n) => (n.data as any).name || "")
                                             .filter(Boolean)
                                             .sort((a, b) => a.localeCompare(b));
                                         } else if (flowToSearch === currentFlowName) {
                                           targetNodes = nodes
-                                            .filter(n => n.parentNode === node.parentNode && n.type !== 'start' && n.type !== 'group')
-                                            .map(n => (n.data as any).name || "")
+                                            .filter(
+                                              (n) =>
+                                                n.parentNode === node.parentNode &&
+                                                n.type !== "start" &&
+                                                n.type !== "group"
+                                            )
+                                            .map((n) => (n.data as any).name || "")
                                             .filter(Boolean)
                                             .sort((a, b) => a.localeCompare(b));
                                         } else {
                                           // Find the specific ancestor group with this name
-                                          const targetAncestor = ancestorFlows.find(f => f.name === flowToSearch);
-                                          
+                                          const targetAncestor = ancestorFlows.find(
+                                            (f) => f.name === flowToSearch
+                                          );
+
                                           if (targetAncestor) {
                                             targetNodes = nodes
-                                              .filter(n => n.parentNode === targetAncestor.id && n.type !== 'start' && n.type !== 'group')
-                                              .map(n => (n.data as any).name || "")
+                                              .filter(
+                                                (n) =>
+                                                  n.parentNode === targetAncestor.id &&
+                                                  n.type !== "start" &&
+                                                  n.type !== "group"
+                                              )
+                                              .map((n) => (n.data as any).name || "")
                                               .filter(Boolean)
                                               .sort((a, b) => a.localeCompare(b));
                                           } else {
-                                            const targetFlowGroup = nodes.find(n => {
-                                              if (n.type !== 'group') return false;
-                                              const gName = (n.data as any).name || (n.data as any).flowName;
+                                            const targetFlowGroup = nodes.find((n) => {
+                                              if (n.type !== "group") return false;
+                                              const gName =
+                                                (n.data as any).name || (n.data as any).flowName;
                                               if (gName === flowToSearch) return true;
-                                              const start = nodes.find(s => s.parentNode === n.id && s.type === 'start');
-                                              return (start?.data as any)?.flowName === flowToSearch;
+                                              const start = nodes.find(
+                                                (s) => s.parentNode === n.id && s.type === "start"
+                                              );
+                                              return (
+                                                (start?.data as any)?.flowName === flowToSearch
+                                              );
                                             });
-                                            
+
                                             if (targetFlowGroup) {
                                               targetNodes = nodes
-                                                .filter(n => n.parentNode === targetFlowGroup.id && n.type !== 'start' && n.type !== 'group')
-                                                .map(n => (n.data as any).name || "")
+                                                .filter(
+                                                  (n) =>
+                                                    n.parentNode === targetFlowGroup.id &&
+                                                    n.type !== "start" &&
+                                                    n.type !== "group"
+                                                )
+                                                .map((n) => (n.data as any).name || "")
                                                 .filter(Boolean)
                                                 .sort((a, b) => a.localeCompare(b));
                                             }
                                           }
                                         }
 
-                                        const isExactTargetMatch = targetNodes.includes(goBackTarget || "");
-                                        const filtered = (isExactTargetMatch || !goBackTarget)
-                                          ? targetNodes
-                                          : targetNodes.filter((name) =>
-                                              name.toLowerCase().includes((goBackTarget || "").toLowerCase())
-                                            );
+                                        const isExactTargetMatch = targetNodes.includes(
+                                          goBackTarget || ""
+                                        );
+                                        const filtered =
+                                          isExactTargetMatch || !goBackTarget
+                                            ? targetNodes
+                                            : targetNodes.filter((name) =>
+                                                name
+                                                  .toLowerCase()
+                                                  .includes((goBackTarget || "").toLowerCase())
+                                              );
 
                                         if (filtered.length === 0) {
-                                          return <div className="px-4 py-3 text-xs text-gray-400 italic">No nodes found in {flowToSearch}</div>;
+                                          return (
+                                            <div className="px-4 py-3 text-xs text-gray-400 italic">
+                                              No nodes found in {flowToSearch}
+                                            </div>
+                                          );
                                         }
 
                                         return filtered.map((name) => (
@@ -626,14 +626,19 @@ export default function PromptInspector({
                                               e.preventDefault();
                                               const nextNode = node.data.nextNode as PromptNextNode;
                                               const newRoutes = [...(nextNode.routes || [])];
-                                              newRoutes[idx] = { ...newRoutes[idx], goBackTarget: name };
-                                              updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                              newRoutes[idx] = {
+                                                ...newRoutes[idx],
+                                                goBackTarget: name,
+                                              };
+                                              updateNodeData(node.id, {
+                                                nextNode: { ...nextNode, routes: newRoutes },
+                                              });
                                               setActiveSearchIdx(null);
                                             }}
                                             className={`w-full text-left px-4 py-2 text-sm transition-colors border-b border-gray-50 last:border-0 ${
-                                              name === (goBackTarget || "") 
-                                                ? 'bg-indigo-50 text-indigo-700 font-semibold' 
-                                                : 'text-gray-900 hover:bg-indigo-600 hover:text-white'
+                                              name === (goBackTarget || "")
+                                                ? "bg-indigo-50 text-indigo-700 font-semibold"
+                                                : "text-gray-900 hover:bg-indigo-600 hover:text-white"
                                             }`}
                                           >
                                             {name}
@@ -671,16 +676,20 @@ export default function PromptInspector({
                                       value={route.goBackToFlow || ""}
                                       onFocus={() => setActiveFlowSearchIdx(idx)}
                                       onClick={() => setActiveFlowSearchIdx(idx)}
-                                      onBlur={() => setTimeout(() => setActiveFlowSearchIdx(null), 200)}
+                                      onBlur={() =>
+                                        setTimeout(() => setActiveFlowSearchIdx(null), 200)
+                                      }
                                       onChange={(e) => {
                                         const nextNode = node.data.nextNode as PromptNextNode;
                                         const newRoutes = [...(nextNode.routes || [])];
                                         newRoutes[idx] = {
                                           ...newRoutes[idx],
                                           goBackToFlow: e.target.value,
-                                          goBackTarget: ""
+                                          goBackTarget: "",
                                         };
-                                        updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                        updateNodeData(node.id, {
+                                          nextNode: { ...nextNode, routes: newRoutes },
+                                        });
                                       }}
                                       placeholder={currentFlowName || "Current Flow"}
                                     />
@@ -689,12 +698,23 @@ export default function PromptInspector({
                                       onMouseDown={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setActiveFlowSearchIdx(activeFlowSearchIdx === idx ? null : idx);
+                                        setActiveFlowSearchIdx(
+                                          activeFlowSearchIdx === idx ? null : idx
+                                        );
                                       }}
                                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-indigo-600 transition-colors"
                                     >
-                                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform duration-200 ${activeFlowSearchIdx === idx ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className={`h-4 w-4 transition-transform duration-200 ${activeFlowSearchIdx === idx ? "rotate-180" : ""}`}
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                          clipRule="evenodd"
+                                        />
                                       </svg>
                                     </button>
                                   </div>
@@ -709,9 +729,11 @@ export default function PromptInspector({
                                           newRoutes[idx] = {
                                             ...newRoutes[idx],
                                             goBackToFlow: "",
-                                            goBackTarget: ""
+                                            goBackTarget: "",
                                           };
-                                          updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                          updateNodeData(node.id, {
+                                            nextNode: { ...nextNode, routes: newRoutes },
+                                          });
                                           setActiveFlowSearchIdx(null);
                                         }}
                                         className="w-full text-left px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-medium border-b border-gray-50"
@@ -719,16 +741,33 @@ export default function PromptInspector({
                                         Revert to Current Flow
                                       </button>
                                       {(() => {
-                                        const sortedAllFlowNames = [...allFlowNames].sort((a, b) => a.localeCompare(b)); // Added sort
-                                        const isExactFlowMatch = sortedAllFlowNames.includes(route.goBackToFlow || "");
-                                        const filtered = (isExactFlowMatch || !route.goBackToFlow)
-                                          ? sortedAllFlowNames
-                                          : sortedAllFlowNames.filter((name) =>
-                                              name.toLowerCase().includes((route.goBackToFlow || "").toLowerCase())
-                                            );
+                                        const sortedAllFlowNames = [...allFlowNames].sort((a, b) =>
+                                          a.localeCompare(b)
+                                        ); // Added sort
+                                        const isExactFlowMatch = sortedAllFlowNames.includes(
+                                          route.goBackToFlow || ""
+                                        );
+                                        const filtered =
+                                          isExactFlowMatch || !route.goBackToFlow
+                                            ? sortedAllFlowNames
+                                            : sortedAllFlowNames.filter((name) =>
+                                                name
+                                                  .toLowerCase()
+                                                  .includes(
+                                                    (route.goBackToFlow || "").toLowerCase()
+                                                  )
+                                              );
 
-                                        if (filtered.length === 0 && (route.goBackToFlow || "").length > 0) {
-                                          return <div className="px-4 py-3 text-xs text-gray-400 italic">No flows matching &quot;{(route.goBackToFlow || "")}&quot;</div>;
+                                        if (
+                                          filtered.length === 0 &&
+                                          (route.goBackToFlow || "").length > 0
+                                        ) {
+                                          return (
+                                            <div className="px-4 py-3 text-xs text-gray-400 italic">
+                                              No flows matching &quot;{route.goBackToFlow || ""}
+                                              &quot;
+                                            </div>
+                                          );
                                         }
 
                                         return filtered.map((name) => (
@@ -741,15 +780,17 @@ export default function PromptInspector({
                                               newRoutes[idx] = {
                                                 ...newRoutes[idx],
                                                 goBackToFlow: name,
-                                                goBackTarget: ""
+                                                goBackTarget: "",
                                               };
-                                              updateNodeData(node.id, { nextNode: { ...nextNode, routes: newRoutes } });
+                                              updateNodeData(node.id, {
+                                                nextNode: { ...nextNode, routes: newRoutes },
+                                              });
                                               setActiveFlowSearchIdx(null);
                                             }}
                                             className={`w-full text-left px-4 py-2 text-sm transition-colors border-b border-gray-50 last:border-0 ${
                                               name === (route.goBackToFlow || "")
-                                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                                                : 'text-gray-900 hover:bg-indigo-600 hover:text-white'
+                                                ? "bg-indigo-50 text-indigo-700 font-semibold"
+                                                : "text-gray-900 hover:bg-indigo-600 hover:text-white"
                                             }`}
                                           >
                                             {name === currentFlowName ? `${name} (Current)` : name}
@@ -807,8 +848,7 @@ export default function PromptInspector({
           </div>
         )}
 
-        {(node.data.routingMode === "linear" || 
-          (!node.data.routingMode && (typeof node.data.nextNode === "string" || !node.data.nextNode))) && (
+        {!isMenuMode && (
           <TargetNodeDisplay
             nodeId={node.data.nextNode as string}
             label="Next Node"
@@ -820,30 +860,31 @@ export default function PromptInspector({
       <div className="space-y-6">
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-50 mb-2">
-            <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.717 1.717 0 01-1.07 1.703c-1.624.812-1.624 3.124 0 3.936a1.717 1.717 0 011.07 1.703c-.426 1.756-2.924 1.756-3.35 0a1.717 1.717 0 011.07-1.703c1.624-.812 1.624-3.124 0-3.936a1.717 1.717 0 01-1.07-1.703z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10a4 4 0 11-8 0 4 4 0 018 0z" />
+            <svg
+              className="w-4 h-4 text-indigo-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.717 1.717 0 01-1.07 1.703c-1.624.812-1.624 3.124 0 3.936a1.717 1.717 0 011.07 1.703c-.426 1.756-2.924 1.756-3.35 0a1.717 1.717 0 011.07-1.703c1.624-.812 1.624-3.124 0-3.936a1.717 1.717 0 01-1.07-1.703z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14 10a4 4 0 11-8 0 4 4 0 018 0z"
+              />
             </svg>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">General Settings</h3>
+            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+              General Settings
+            </h3>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
-                Routing Mode
-              </label>
-              <select
-                className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all text-gray-900"
-                value={String(node.data.routingMode ?? "linear")}
-                onChange={(e) =>
-                  updateNodeData(node.id, { routingMode: e.target.value })
-                }
-              >
-                <option value="menu">Menu (Branching)</option>
-                <option value="linear">Linear (Input)</option>
-              </select>
-            </div>
-
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
                 Response Type
@@ -851,9 +892,7 @@ export default function PromptInspector({
               <select
                 className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all text-gray-900"
                 value={node.data.responseType ?? "CONTINUE"}
-                onChange={(e) =>
-                  updateNodeData(node.id, { responseType: e.target.value })
-                }
+                onChange={(e) => updateNodeData(node.id, { responseType: e.target.value })}
               >
                 <option value="CONTINUE">CONTINUE</option>
                 <option value="END">END</option>
@@ -885,10 +924,22 @@ export default function PromptInspector({
 
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-50 mb-2">
-            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            <svg
+              className="w-4 h-4 text-emerald-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+              />
             </svg>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Input Validation & Persistence</h3>
+            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+              Input Validation & Persistence
+            </h3>
           </div>
 
           <div className="flex gap-4">
@@ -926,20 +977,28 @@ export default function PromptInspector({
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Source Field</label>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                        Persist Source Field
+                      </label>
                       <input
                         className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
                         value={String(node.data.persistSourceField ?? "")}
-                        onChange={(e) => updateNodeData(node.id, { persistSourceField: e.target.value })}
+                        onChange={(e) =>
+                          updateNodeData(node.id, { persistSourceField: e.target.value })
+                        }
                         placeholder="userAccounts"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Field Name</label>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                        Persist Field Name
+                      </label>
                       <input
                         className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
                         value={String(node.data.persistFieldName ?? "")}
-                        onChange={(e) => updateNodeData(node.id, { persistFieldName: e.target.value })}
+                        onChange={(e) =>
+                          updateNodeData(node.id, { persistFieldName: e.target.value })
+                        }
                         placeholder="SelectedAccount"
                       />
                     </div>
@@ -961,7 +1020,9 @@ export default function PromptInspector({
               )}
               {node.data.persistInput && (
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Persist Input As</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Persist Input As
+                  </label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
                     value={String(node.data.persistInputAs ?? "")}
@@ -977,10 +1038,22 @@ export default function PromptInspector({
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-gray-50 mb-2">
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-4 h-4 text-amber-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Index Validation</h3>
+              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                Index Validation
+              </h3>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -996,7 +1069,9 @@ export default function PromptInspector({
           {node.data.validateIndexedList && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Indexed List Var</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                  Indexed List Var
+                </label>
                 <input
                   className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900 font-mono"
                   value={String(node.data.indexedListVar ?? "")}
@@ -1006,7 +1081,9 @@ export default function PromptInspector({
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Index Message</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Invalid Index Message
+                  </label>
                   <textarea
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-400 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
@@ -1025,20 +1102,32 @@ export default function PromptInspector({
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-gray-50 mb-2">
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-4 h-4 text-emerald-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
-              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Input Validation</h3>
+              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                Input Validation
+              </h3>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(node.data.inputValidationEnabled)}
-                  onChange={(e) =>
+              <input
+                type="checkbox"
+                checked={Boolean(node.data.inputValidationEnabled)}
+                onChange={(e) =>
                   updateNodeData(node.id, {
                     inputValidationEnabled: e.target.checked,
                     inputType: e.target.checked
-                      ? node.data.inputType ?? "STRING"
+                      ? (node.data.inputType ?? "STRING")
                       : node.data.inputType,
                   })
                 }
@@ -1052,13 +1141,13 @@ export default function PromptInspector({
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
               <div className="flex flex-col space-y-5">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Type</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Type
+                  </label>
                   <select
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-500:bg-white transition-all text-gray-900"
                     value={String(node.data.inputType ?? "STRING")}
-                    onChange={(e) =>
-                      updateNodeData(node.id, { inputType: e.target.value })
-                    }
+                    onChange={(e) => updateNodeData(node.id, { inputType: e.target.value })}
                   >
                     <option value="NON_ZERO_FLOAT">NON_ZERO_FLOAT</option>
                     <option value="NON_ZERO_INT">NON_ZERO_INT</option>
@@ -1068,7 +1157,9 @@ export default function PromptInspector({
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Invalid Input</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Invalid Input
+                  </label>
                   <textarea
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-500 focus:bg-white transition-all text-gray-900 resize-none"
                     rows={2}
@@ -1081,152 +1172,6 @@ export default function PromptInspector({
                     placeholder="Input must be a valid string."
                   />
                 </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-50 mb-2">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-              </svg>
-              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Pagination</h3>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={Boolean(node.data.pagination?.enabled)}
-                onChange={(e) => {
-                  const currentPag = node.data.pagination || {
-                    enabled: false,
-                    actionNode: "",
-                    pageField: "",
-                    totalPagesField: "totalPages",
-                    nextInput: "#",
-                    prevInput: "##",
-                    nextLabel: "#. Next Page",
-                    prevLabel: "##. Previous Page",
-                    controlsVar: "paginationControls",
-                  };
-                  updateNodeData(node.id, {
-                    pagination: { ...currentPag, enabled: e.target.checked },
-                  });
-                }}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-px after:left-px after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-purple-500"></div>
-            </label>
-          </div>
-
-          {node.data.pagination?.enabled && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-              <div className="grid grid-cols-2 gap-3 items-center">
-                <label className="flex items-center gap-2 text-xs text-gray-700 font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(node.data.hasMultiplePage)}
-                    onChange={(e) => updateNodeData(node.id, { hasMultiplePage: e.target.checked })}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  Has Multiple Page
-                </label>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Index Per Page</label>
-                  <input
-                    type="number"
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.indexPerPage ?? ""}
-                    onChange={(e) => updateNodeData(node.id, { indexPerPage: parseInt(e.target.value) || 0 })}
-                    placeholder="3"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Action Node</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination?.actionNode || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, actionNode: e.target.value } })}
-                    placeholder="loadBanksPage"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Page Field</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination?.pageField || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, pageField: e.target.value } })}
-                    placeholder="banksPage"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Total Pages Field</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination?.totalPagesField || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, totalPagesField: e.target.value } })}
-                    placeholder="totalPages"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Next Input</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination?.nextInput || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, nextInput: e.target.value } })}
-                    placeholder="#"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Prev Input</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                    value={node.data.pagination?.prevInput || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, prevInput: e.target.value } })}
-                    placeholder="##"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Next Label</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.pagination?.nextLabel || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, nextLabel: e.target.value } })}
-                    placeholder="#. Next Page"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Prev Label</label>
-                  <input
-                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900"
-                    value={node.data.pagination?.prevLabel || ""}
-                    onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, prevLabel: e.target.value } })}
-                    placeholder="##. Previous Page"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Controls Variable</label>
-                <input
-                  className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-gray-900 font-mono"
-                  value={node.data.pagination?.controlsVar || ""}
-                  onChange={(e) => updateNodeData(node.id, { pagination: { ...node.data.pagination!, controlsVar: e.target.value } })}
-                  placeholder="paginationControls"
-                />
               </div>
             </div>
           )}

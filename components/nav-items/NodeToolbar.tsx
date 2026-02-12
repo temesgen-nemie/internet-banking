@@ -2,13 +2,7 @@
 
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import {
-  Bolt,
-  Code2,
-  FileUp,
-  MessageSquare,
-  PlayCircle,
-} from "lucide-react";
+import { Bolt, Code2, FileUp, MessageSquare } from "lucide-react";
 import { useFlowStore } from "@/store/flow/flowStore";
 import {
   DropdownMenu,
@@ -18,13 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function NodeToolbar() {
-  const { addNode, rfInstance, nodes, currentSubflowId, importSubflow } =
-    useFlowStore();
+  const { addNode, rfInstance, nodes, currentSubflowId, importSubflow } = useFlowStore();
 
   const hasStart = nodes.some(
-    (n) =>
-      n.type === "start" &&
-      (n.parentNode || null) === (currentSubflowId || null)
+    (n) => n.type === "start" && (n.parentNode || null) === (currentSubflowId || null)
   );
 
   const getCenteredPosition = useCallback(() => {
@@ -53,14 +44,14 @@ export default function NodeToolbar() {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
-          ? { message: "", routingMode: "menu" }
+          ? { message: "", nextNode: { routes: [], default: "" } }
           : type === "action"
-          ? { endpoint: "" }
-          : type === "script"
-          ? { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] }
-          : type === "condition"
-          ? { name: "", nextNode: { routes: [], default: "" } }
-          : { flowName: "", entryNode: "" };
+            ? { endpoint: "", requestSource: "api" as const }
+            : type === "script"
+              ? { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] }
+              : type === "condition"
+                ? { name: "", nextNode: { routes: [], default: "" } }
+                : { flowName: "", entryNode: "" };
 
       addNode({
         id: uuidv4(),
@@ -128,13 +119,25 @@ export default function NodeToolbar() {
           onClick={() => handleAddNode("condition")}
         >
           <span className="rounded-sm bg-pink-700 p-1">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 3v12"/><path d="M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/><path d="M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/><path d="M18 19a3 3 0 1 1-2.14-5.18"/>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 3v12" />
+              <path d="M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+              <path d="M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6" />
+              <path d="M18 19a3 3 0 1 1-2.14-5.18" />
             </svg>
           </span>
           Condition
         </button>
-        <button
+        {/* <button
           className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer ${
             hasStart
               ? "bg-muted text-muted-foreground cursor-not-allowed"
@@ -153,7 +156,7 @@ export default function NodeToolbar() {
             <PlayCircle className="h-4 w-4 text-white" />
           </span>
           Start
-        </button>
+        </button> */}
         <div className="h-6 w-px bg-border mx-1" />
         <div className="relative group">
           <input
@@ -164,12 +167,12 @@ export default function NodeToolbar() {
               const file = e.target.files?.[0];
               if (!file) return;
               const reader = new FileReader();
-                  reader.onload = (event) => {
-                    const text = event.target?.result;
-                    if (typeof text === "string") {
-                      importSubflow(text, getCenteredPosition());
-                    }
-                  };
+              reader.onload = (event) => {
+                const text = event.target?.result;
+                if (typeof text === "string") {
+                  importSubflow(text, getCenteredPosition());
+                }
+              };
               reader.readAsText(file);
               e.target.value = "";
             }}
@@ -196,38 +199,26 @@ export default function NodeToolbar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-44">
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => handleAddNode("prompt")}
-            >
+            <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("prompt")}>
               Prompt
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => handleAddNode("action")}
-            >
+            <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("action")}>
               Action
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => handleAddNode("script")}
-            >
+            <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("script")}>
               Script
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => handleAddNode("condition")}
-            >
+            <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("condition")}>
               Condition
             </DropdownMenuItem>
-            <DropdownMenuItem
+            {/* <DropdownMenuItem
               className={`cursor-pointer ${
                 hasStart ? "opacity-50 pointer-events-none" : ""
               }`}
               onClick={() => handleAddNode("start")}
             >
               Start
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuItem className="relative cursor-pointer">
               <input
                 type="file"

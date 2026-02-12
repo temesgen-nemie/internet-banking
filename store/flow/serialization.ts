@@ -7,19 +7,22 @@ import { type FlowJson, type FlowNode, type FlowRoute } from "./types";
  * container that defines a flow (contains a Start node).
  * Returns both the groupId and the flowName.
  */
-export const getParentGroupInfo = (nodes: Node[], nodeId: string): { groupId: string, flowName: string } | null => {
-  const node = nodes.find(n => n.id === nodeId);
+export const getParentGroupInfo = (
+  nodes: Node[],
+  nodeId: string
+): { groupId: string; flowName: string } | null => {
+  const node = nodes.find((n) => n.id === nodeId);
   if (!node) return null;
 
   const parentId = node.parentNode;
   if (!parentId) return null;
 
-  const children = nodes.filter(n => n.parentNode === parentId);
-  const startNode = children.find(n => n.type === 'start');
+  const children = nodes.filter((n) => n.parentNode === parentId);
+  const startNode = children.find((n) => n.type === "start");
   if (startNode) {
     return {
       groupId: parentId,
-      flowName: (startNode.data.flowName as string) || ""
+      flowName: (startNode.data.flowName as string) || "",
     };
   }
 
@@ -32,58 +35,83 @@ export const getParentGroupInfo = (nodes: Node[], nodeId: string): { groupId: st
  * Used for deep comparison (Smart Diff) to detect IF meaningful changes exist.
  */
 export const calculateFlowSnapshot = (groupId: string, nodes: Node[], edges: Edge[]): string => {
-  const children = nodes.filter(n => n.parentNode === groupId);
-  const childIds = new Set(children.map(n => n.id));
-  const innerEdges = edges.filter(e => childIds.has(e.source) && childIds.has(e.target));
+  const children = nodes.filter((n) => n.parentNode === groupId);
+  const childIds = new Set(children.map((n) => n.id));
+  const innerEdges = edges.filter((e) => childIds.has(e.source) && childIds.has(e.target));
 
-  const cleanNodes = children.map(n => {
-    // Extract only logical data, ignoring internal React Flow props like width/height
-    const { name, flowName, message, nextNode, nextNodeId, isMainMenu, isMenuBranch, ...otherData } = (n.data as Record<string, any>) || {};
+  const cleanNodes = children
+    .map((n) => {
+      // Extract only logical data, ignoring internal React Flow props like width/height
+      const {
+        name,
+        flowName,
+        message,
+        nextNode,
+        nextNodeId,
+        isMainMenu,
+        isMenuBranch,
+        ...otherData
+      } = (n.data as Record<string, any>) || {};
 
-    // We keep other data too but we want to be careful about what contributes to a "change"
-    // For now, let's just use the whole data but remove known noisy fields if any
-    const logicalData = { name, flowName, message, nextNode, nextNodeId, isMainMenu, isMenuBranch, ...otherData };
+      // We keep other data too but we want to be careful about what contributes to a "change"
+      // For now, let's just use the whole data but remove known noisy fields if any
+      const logicalData = {
+        name,
+        flowName,
+        message,
+        nextNode,
+        nextNodeId,
+        isMainMenu,
+        isMenuBranch,
+        ...otherData,
+      };
 
-    return {
-      id: n.id,
-      type: n.type,
-      data: logicalData,
-      position: {
-        x: Math.round(n.position.x),
-        y: Math.round(n.position.y)
-      }
-    };
-  }).sort((a, b) => a.id.localeCompare(b.id));
+      return {
+        id: n.id,
+        type: n.type,
+        data: logicalData,
+        position: {
+          x: Math.round(n.position.x),
+          y: Math.round(n.position.y),
+        },
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
 
-  const cleanEdges = innerEdges.map(e => ({
-    source: e.source,
-    target: e.target,
-    sourceHandle: e.sourceHandle,
-    targetHandle: e.targetHandle
-  })).sort((a, b) => (a.source + a.target).localeCompare(b.source + b.target));
+  const cleanEdges = innerEdges
+    .map((e) => ({
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
+    }))
+    .sort((a, b) => (a.source + a.target).localeCompare(b.source + b.target));
 
   return JSON.stringify({ nodes: cleanNodes, edges: cleanEdges });
 };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-export const replaceNextNodeNameInScript = (
-  script: string,
-  oldName: string,
-  newName: string
-) => {
+export const replaceNextNodeNameInScript = (script: string, oldName: string, newName: string) => {
   if (!script || !oldName || oldName === newName) return script;
   const escaped = escapeRegExp(oldName);
-  const pattern = new RegExp(
-    `(\\bnextNode\\s*:\\s*)(['"\`])${escaped}\\2`,
-    "g"
-  );
+  const pattern = new RegExp(`(\\bnextNode\\s*:\\s*)(['"\`])${escaped}\\2`, "g");
   return script.replace(pattern, (_match, prefix, quote) => {
     return `${prefix}${quote}${newName}${quote}`;
   });
 };
 
 export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
+  const sanitizedVisualNodes = nodes.map((node) => {
+    if (node.type !== "prompt") return node;
+    const data = { ...((node.data as Record<string, unknown>) || {}) };
+    delete data.routingMode;
+    delete data.pagination;
+    delete data.hasMultiplePage;
+    delete data.indexPerPage;
+    return { ...node, data };
+  });
+
   const nameById = new Map<string, string>();
   const idByName = new Map<string, string>();
   const typeById = new Map<string, string>();
@@ -137,7 +165,6 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
 
       if (node.type === "prompt") {
         const message = String(data.message ?? "");
-        const routingMode = String(data.routingMode ?? "linear");
         const nextNode = data.nextNode;
         const persistSourceField = String(data.persistSourceField ?? "");
         const persistFieldName = String(data.persistFieldName ?? "");
@@ -148,28 +175,17 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             ""
         );
         const emptyInputMessage = String(data.emptyInputMessage ?? "");
-        const inputType = String(
-          data.inputType ??
-            (data.inputValidationEnabled ? "STRING" : "")
-        );
-        const invalidInputTypeMessage = String(
-          data.invalidInputTypeMessage ?? ""
-        );
+        const inputType = String(data.inputType ?? (data.inputValidationEnabled ? "STRING" : ""));
+        const invalidInputTypeMessage = String(data.invalidInputTypeMessage ?? "");
         const promptExtras: Partial<FlowNode> = {
           persistByIndex:
-            typeof data.persistByIndex === "boolean"
-              ? data.persistByIndex
-              : undefined,
+            typeof data.persistByIndex === "boolean" ? data.persistByIndex : undefined,
           persistByIndexValue:
-            typeof data.persistByIndexValue === "string"
-              ? data.persistByIndexValue
-              : undefined,
+            typeof data.persistByIndexValue === "string" ? data.persistByIndexValue : undefined,
           persistSourceField: persistSourceField || undefined,
           persistFieldName: persistFieldName || undefined,
           validateIndexedList:
-            typeof data.validateIndexedList === "boolean"
-              ? data.validateIndexedList
-              : undefined,
+            typeof data.validateIndexedList === "boolean" ? data.validateIndexedList : undefined,
           indexedListVar: indexedListVar || undefined,
           invalidInputMessage: invalidInputMessage || undefined,
           emptyInputMessage: emptyInputMessage || undefined,
@@ -179,40 +195,18 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             typeof data.inputValidationEnabled === "boolean"
               ? data.inputValidationEnabled
               : undefined,
-          persistInput:
-            typeof data.persistInput === "boolean"
-              ? data.persistInput
-              : undefined,
+          persistInput: typeof data.persistInput === "boolean" ? data.persistInput : undefined,
           persistInputAs: String(data.persistInputAs ?? "") || undefined,
           responseType: (data.responseType as any) || "CONTINUE",
-          encryptInput:
-            typeof data.encryptInput === "boolean"
-              ? data.encryptInput
-              : undefined,
-          hasMultiplePage:
-            typeof data.hasMultiplePage === "boolean"
-              ? data.hasMultiplePage
-              : undefined,
-          indexPerPage:
-            typeof data.indexPerPage === "number"
-              ? data.indexPerPage
-              : undefined,
-          pagination: data.pagination
-            ? {
-              enabled: Boolean((data.pagination as any).enabled),
-              actionNode: String((data.pagination as any).actionNode ?? ""),
-              pageField: String((data.pagination as any).pageField ?? ""),
-              totalPagesField: String((data.pagination as any).totalPagesField ?? ""),
-              nextInput: String((data.pagination as any).nextInput ?? ""),
-              prevInput: String((data.pagination as any).prevInput ?? ""),
-              nextLabel: String((data.pagination as any).nextLabel ?? ""),
-              prevLabel: String((data.pagination as any).prevLabel ?? ""),
-              controlsVar: String((data.pagination as any).controlsVar ?? ""),
-            }
-            : undefined,
+          encryptInput: typeof data.encryptInput === "boolean" ? data.encryptInput : undefined,
         };
 
-        if (routingMode === "linear") {
+        const isMenuMode =
+          !!nextNode &&
+          typeof nextNode === "object" &&
+          Array.isArray((nextNode as { routes?: unknown[] }).routes);
+
+        if (!isMenuMode) {
           let targetStr = "";
           if (typeof nextNode === "string") {
             targetStr = nextNode;
@@ -221,7 +215,11 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           }
 
           const resolved = resolveTarget(targetStr);
-          const finalId = resolved.id || (targetStr && nameById.has(targetStr) ? targetStr : "") || targetStr || "";
+          const finalId =
+            resolved.id ||
+            (targetStr && nameById.has(targetStr) ? targetStr : "") ||
+            targetStr ||
+            "";
 
           return {
             ...base,
@@ -314,8 +312,8 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             ? [String(data.outputVar)]
             : [];
         const fields = rawFields.map((value) => String(value ?? ""));
-        const outputVars = (rawOutputVars.length ? rawOutputVars : fields).map(
-          (value) => String(value ?? "")
+        const outputVars = (rawOutputVars.length ? rawOutputVars : fields).map((value) =>
+          String(value ?? "")
         );
 
         const hasLocalSource =
@@ -324,13 +322,28 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           outputVars.length > 0 ||
           Boolean(data.field) ||
           Boolean(data.outputVar);
-        const formatValue = data.format as
-          | "indexedList"
-          | "singleValue"
-          | undefined;
+        const wsUrl = String(data.wsUrl ?? "");
+        const wsProtocols = Array.isArray(data.wsProtocols)
+          ? data.wsProtocols
+              .map((value) => String(value ?? "").trim())
+              .filter((value) => value.length > 0)
+          : [];
+        const wsMessage = String(data.wsMessage ?? "");
+        const wsLastMessage = String(data.wsLastMessage ?? "");
+        const hasWebSocketSource =
+          Boolean(wsUrl) || wsProtocols.length > 0 || Boolean(wsMessage) || Boolean(wsLastMessage);
+        const requestSourceRaw = String(data.requestSource ?? "");
+        const requestSource =
+          requestSourceRaw === "local" || requestSourceRaw === "ws" || requestSourceRaw === "api"
+            ? requestSourceRaw
+            : hasWebSocketSource
+              ? "ws"
+              : hasLocalSource
+                ? "local"
+                : "api";
+        const formatValue = data.format as "indexedList" | "singleValue" | undefined;
         const routes = (
-          (data.routes as Array<{ condition?: string; nextNodeId?: string }>) ||
-          []
+          (data.routes as Array<{ condition?: string; nextNodeId?: string }>) || []
         ).map((route) => {
           let when: Record<string, unknown> | undefined;
           if (route.condition) {
@@ -348,15 +361,24 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           };
         });
 
-        const nextNodeRaw = typeof data.nextNode === "string"
-          ? data.nextNode
-          : (data.nextNode && typeof data.nextNode === "object" ? (data.nextNode as any).default : "");
+        const nextNodeRaw =
+          typeof data.nextNode === "string"
+            ? data.nextNode
+            : data.nextNode && typeof data.nextNode === "object"
+              ? (data.nextNode as any).default
+              : "";
         const defaultResolved = resolveTarget(nextNodeRaw || "");
 
         return {
           ...base,
+          requestSource,
           endpoint: String(data.endpoint ?? ""),
           method: String(data.method ?? ""),
+          curl: String(data.curl ?? "") || undefined,
+          wsUrl: wsUrl || undefined,
+          wsProtocols: wsProtocols.length > 0 ? wsProtocols : undefined,
+          wsMessage: wsMessage || undefined,
+          wsLastMessage: wsLastMessage || undefined,
           dataSource: String(data.dataSource ?? ""),
           fields: fields.length > 0 ? fields : undefined,
           outputVars: outputVars.length > 0 ? outputVars : undefined,
@@ -365,15 +387,13 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
           responseMapping: data.responseMapping
             ? Object.fromEntries(
-              Object.entries(data.responseMapping as Record<string, string>).map(
-                ([k, v]) => {
+                Object.entries(data.responseMapping as Record<string, string>).map(([k, v]) => {
                   if (typeof v === "string") {
                     return [k, v];
                   }
                   return [k, v];
-                }
+                })
               )
-            )
             : undefined,
           persistResponseMappingKeys: (data.persistResponseMappingKeys as string[]) || undefined,
           encryptResponseMappingKeys: (data.encryptResponseMappingKeys as string[]) || undefined,
@@ -389,8 +409,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const nextNodeRaw = typeof data.nextNode === "string" ? data.nextNode : "";
         const resolved = resolveTarget(nextNodeRaw || "");
         const routesRaw =
-          (data.routes as Array<{ id?: string; key?: string; nextNodeId?: string }>) ||
-          [];
+          (data.routes as Array<{ id?: string; key?: string; nextNodeId?: string }>) || [];
         const scriptRoutes = routesRaw.map((route) => {
           const target = resolveTarget(route.nextNodeId || "");
           return {
@@ -424,7 +443,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           const target = resolveTarget(route.goto || "");
           return {
             when: route.when,
-            goto: target.name || ""
+            goto: target.name || "",
           };
         });
 
@@ -434,8 +453,8 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           ...base,
           nextNode: {
             routes,
-            default: defaultTarget.name || ""
-          }
+            default: defaultTarget.name || "",
+          },
         };
       }
 
@@ -447,6 +466,6 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     entryNode: entryResolved.name,
     entryNodeId: entryResolved.id,
     nodes: flowNodes,
-    visualState: { nodes, edges },
+    visualState: { nodes: sanitizedVisualNodes, edges },
   };
 };
