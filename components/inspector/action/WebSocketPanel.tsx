@@ -10,6 +10,7 @@ export type WsLogEntry = {
 };
 
 type WebSocketPanelProps = {
+  wsCurlText: string;
   url: string;
   protocolsText: string;
   draftMessage: string;
@@ -17,6 +18,8 @@ type WebSocketPanelProps = {
   isConnected: boolean;
   connectionState: WsConnectionState;
   messages: WsLogEntry[];
+  onWsCurlChange: (value: string) => void;
+  onImportWsCurl: () => void;
   onUrlChange: (value: string) => void;
   onProtocolsChange: (value: string) => void;
   onDraftMessageChange: (value: string) => void;
@@ -34,6 +37,7 @@ const connectionBadgeStyles: Record<WsConnectionState, string> = {
 };
 
 export default function WebSocketPanel({
+  wsCurlText,
   url,
   protocolsText,
   draftMessage,
@@ -41,6 +45,8 @@ export default function WebSocketPanel({
   isConnected,
   connectionState,
   messages,
+  onWsCurlChange,
+  onImportWsCurl,
   onUrlChange,
   onProtocolsChange,
   onDraftMessageChange,
@@ -71,6 +77,24 @@ export default function WebSocketPanel({
       </div>
 
       <div className="grid grid-cols-1 gap-3">
+        <div className="rounded-md border border-gray-200 bg-white p-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-semibold uppercase text-gray-500">cURL Import</label>
+            <button
+              type="button"
+              className="rounded bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100"
+              onClick={onImportWsCurl}
+            >
+              Import cURL
+            </button>
+          </div>
+          <textarea
+            className="mt-2 min-h-[72px] w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm text-xs text-gray-900 font-mono"
+            placeholder="Paste curl command for websocket handshake URL..."
+            value={wsCurlText}
+            onChange={(e) => onWsCurlChange(e.target.value)}
+          />
+        </div>
         <div>
           <label className="text-xs font-medium text-gray-600">WebSocket URL</label>
           <input

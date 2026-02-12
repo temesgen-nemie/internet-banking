@@ -11,6 +11,7 @@ export type ActionNodeData = {
   endpoint?: string;
   method?: string;
   curl?: string;
+  wsCurl?: string;
   wsUrl?: string;
   wsProtocols?: string[];
   wsMessage?: string;

@@ -343,6 +343,7 @@ export const createStructureActions = ({
         nextData.endpoint = flowNode.endpoint ?? nextData.endpoint;
         nextData.method = flowNode.method ?? nextData.method;
         nextData.curl = flowNode.curl ?? nextData.curl;
+        nextData.wsCurl = flowNode.wsCurl ?? nextData.wsCurl;
         nextData.wsUrl = flowNode.wsUrl ?? nextData.wsUrl;
         nextData.wsProtocols = flowNode.wsProtocols ?? nextData.wsProtocols;
         nextData.wsMessage = flowNode.wsMessage ?? nextData.wsMessage;

@@ -146,6 +146,7 @@ export default function InspectorPanel() {
         endpoint: "",
         method: "POST",
         curl: "",
+        wsCurl: "",
         wsUrl: "",
         wsProtocols: [],
         wsMessage: "",

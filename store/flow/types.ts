@@ -35,6 +35,7 @@ export type FlowNode = {
   endpoint?: string;
   method?: string;
   curl?: string;
+  wsCurl?: string;
   requestSource?: "api" | "local" | "ws";
   wsUrl?: string;
   wsProtocols?: string[];

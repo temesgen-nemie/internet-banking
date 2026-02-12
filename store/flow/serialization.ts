@@ -323,6 +323,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           Boolean(data.field) ||
           Boolean(data.outputVar);
         const wsUrl = String(data.wsUrl ?? "");
+        const wsCurl = String(data.wsCurl ?? "");
         const wsProtocols = Array.isArray(data.wsProtocols)
           ? data.wsProtocols
               .map((value) => String(value ?? "").trim())
@@ -331,7 +332,11 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const wsMessage = String(data.wsMessage ?? "");
         const wsLastMessage = String(data.wsLastMessage ?? "");
         const hasWebSocketSource =
-          Boolean(wsUrl) || wsProtocols.length > 0 || Boolean(wsMessage) || Boolean(wsLastMessage);
+          Boolean(wsUrl) ||
+          Boolean(wsCurl) ||
+          wsProtocols.length > 0 ||
+          Boolean(wsMessage) ||
+          Boolean(wsLastMessage);
         const requestSourceRaw = String(data.requestSource ?? "");
         const requestSource =
           requestSourceRaw === "local" || requestSourceRaw === "ws" || requestSourceRaw === "api"
@@ -375,6 +380,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           endpoint: String(data.endpoint ?? ""),
           method: String(data.method ?? ""),
           curl: String(data.curl ?? "") || undefined,
+          wsCurl: wsCurl || undefined,
           wsUrl: wsUrl || undefined,
           wsProtocols: wsProtocols.length > 0 ? wsProtocols : undefined,
           wsMessage: wsMessage || undefined,

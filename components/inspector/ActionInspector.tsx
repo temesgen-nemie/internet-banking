@@ -147,6 +147,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
   const activeNodeIdRef = React.useRef(node.id);
   const [wsConnectionState, setWsConnectionState] =
     React.useState<WsConnectionState>("disconnected");
+  const [wsCurlText, setWsCurlText] = React.useState(String(node.data.wsCurl ?? ""));
   const [wsUrl, setWsUrl] = React.useState(String(node.data.wsUrl ?? ""));
   const [wsProtocolsText, setWsProtocolsText] = React.useState(() =>
     Array.isArray(node.data.wsProtocols)
@@ -394,6 +395,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
       wsRef.current = null;
     }
     setWsConnectionState("disconnected");
+    setWsCurlText(String(node.data.wsCurl ?? ""));
     setWsUrl(String(node.data.wsUrl ?? ""));
     setWsProtocolsText(
       Array.isArray(node.data.wsProtocols)
@@ -415,6 +417,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
         : []
     );
   }, [
+    node.data.wsCurl,
     node.data.wsLastMessage,
     node.data.wsMessage,
     node.data.wsProtocols,
@@ -528,6 +531,77 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     }
 
     return { method, url, headers, body };
+  }, []);
+
+  const parseWsCurl = React.useCallback((raw: string) => {
+    const cleaned = raw.replace(/\\\r?\n/g, " ").trim();
+    if (!cleaned.toLowerCase().startsWith("curl ")) {
+      return null;
+    }
+
+    const tokens: string[] = [];
+    let current = "";
+    let inSingle = false;
+    let inDouble = false;
+
+    for (let i = 0; i < cleaned.length; i += 1) {
+      const ch = cleaned[i];
+      if (ch === "'" && !inDouble) {
+        inSingle = !inSingle;
+        continue;
+      }
+      if (ch === `"` && !inSingle) {
+        inDouble = !inDouble;
+        continue;
+      }
+      if (!inSingle && !inDouble && /\s/.test(ch)) {
+        if (current) {
+          tokens.push(current);
+          current = "";
+        }
+        continue;
+      }
+      current += ch;
+    }
+    if (current) {
+      tokens.push(current);
+    }
+
+    let url = "";
+    const headers: Record<string, string> = {};
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = tokens[i];
+      if (token === "curl") continue;
+      if (token === "-H" || token === "--header") {
+        const headerLine = tokens[i + 1] || "";
+        i += 1;
+        const sep = headerLine.indexOf(":");
+        if (sep !== -1) {
+          const key = headerLine.slice(0, sep).trim();
+          const value = headerLine.slice(sep + 1).trim();
+          if (key) headers[key] = value;
+        }
+        continue;
+      }
+      if (!token.startsWith("-") && !url) {
+        url = token;
+      }
+    }
+
+    const protocolHeader =
+      headers["Sec-WebSocket-Protocol"] ?? headers["sec-websocket-protocol"] ?? "";
+    const protocols = protocolHeader
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+
+    const normalizedUrl = url.startsWith("https://")
+      ? `wss://${url.slice("https://".length)}`
+      : url.startsWith("http://")
+        ? `ws://${url.slice("http://".length)}`
+        : url;
+
+    return { url: normalizedUrl, protocols };
   }, []);
 
   const syncHeaders = React.useCallback(
@@ -1377,6 +1451,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
       {sourceMode === "ws" && (
         <>
           <WebSocketPanel
+            wsCurlText={wsCurlText}
             url={wsUrl}
             protocolsText={wsProtocolsText}
             draftMessage={wsDraftMessage}
@@ -1384,6 +1459,28 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
             isConnected={wsConnectionState === "connected"}
             connectionState={wsConnectionState}
             messages={wsMessages}
+            onWsCurlChange={(value) => {
+              setWsCurlText(value);
+              updateNodeData(node.id, { wsCurl: value, requestSource: "ws" });
+            }}
+            onImportWsCurl={() => {
+              const parsed = parseWsCurl(wsCurlText);
+              if (!parsed || !parsed.url) {
+                updateResponse(node.id, {
+                  error: "Invalid curl input. Paste a curl command with a websocket URL.",
+                });
+                return;
+              }
+              setWsUrl(parsed.url);
+              setWsProtocolsText(parsed.protocols.join(", "));
+              updateNodeData(node.id, {
+                requestSource: "ws",
+                wsCurl: wsCurlText,
+                wsUrl: parsed.url,
+                wsProtocols: parsed.protocols,
+              });
+              updateResponse(node.id, { error: null });
+            }}
             onUrlChange={(value) => {
               setWsUrl(value);
               updateNodeData(node.id, { wsUrl: value, requestSource: "ws" });
