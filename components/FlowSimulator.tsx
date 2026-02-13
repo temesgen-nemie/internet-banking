@@ -33,12 +33,12 @@ type FlowOption = {
 
 export default function FlowSimulator({ isOpen, onClose }: FlowSimulatorProps) {
   const nodes = useFlowStore((state) => state.nodes);
-  const [selectedFlowId, setSelectedFlowId] = useState<string>("__root__");
+  const [selectedFlowId, setSelectedFlowId] = useState<string>("");
   const [userInput, setUserInput] = useState("");
   const [responses, setResponses] = useState<string[]>([]);
 
   const flowOptions = useMemo<FlowOption[]>(() => {
-    const options: FlowOption[] = [{ id: "__root__", label: "Main (Root Canvas)" }];
+    const options: FlowOption[] = [];
 
     const rootGroups = nodes.filter((node) => node.type === "group" && !node.parentNode);
     rootGroups.forEach((group) => {
@@ -54,12 +54,19 @@ export default function FlowSimulator({ isOpen, onClose }: FlowSimulatorProps) {
     return options;
   }, [nodes]);
 
-  const selectedFlowLabel = useMemo(() => {
-    const selected = flowOptions.find((option) => option.id === selectedFlowId);
-    return selected?.label ?? "Main (Root Canvas)";
+  const resolvedSelectedFlowId = useMemo(() => {
+    if (flowOptions.length === 0) return "";
+    const exists = flowOptions.some((option) => option.id === selectedFlowId);
+    return exists ? selectedFlowId : flowOptions[0].id;
   }, [flowOptions, selectedFlowId]);
 
+  const selectedFlowLabel = useMemo(() => {
+    const selected = flowOptions.find((option) => option.id === resolvedSelectedFlowId);
+    return selected?.label ?? "";
+  }, [flowOptions, resolvedSelectedFlowId]);
+
   const handleSend = () => {
+    if (!resolvedSelectedFlowId) return;
     const text = userInput.trim();
     if (!text) return;
     const next = `Incoming response (${selectedFlowLabel}): ${text}`;
@@ -87,9 +94,9 @@ export default function FlowSimulator({ isOpen, onClose }: FlowSimulatorProps) {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Flow / Group
             </label>
-            <Select value={selectedFlowId} onValueChange={setSelectedFlowId}>
+            <Select value={resolvedSelectedFlowId} onValueChange={setSelectedFlowId}>
               <SelectTrigger className="w-full cursor-pointer">
-                <SelectValue placeholder="Choose a flow" />
+                <SelectValue placeholder="Select one flow" />
               </SelectTrigger>
               <SelectContent>
                 {flowOptions.map((option) => (
@@ -109,6 +116,7 @@ export default function FlowSimulator({ isOpen, onClose }: FlowSimulatorProps) {
               <Input
                 placeholder="Enter test input..."
                 value={userInput}
+                disabled={!resolvedSelectedFlowId}
                 onChange={(event) => setUserInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -121,6 +129,7 @@ export default function FlowSimulator({ isOpen, onClose }: FlowSimulatorProps) {
                 type="button"
                 onClick={handleSend}
                 className="gap-2 cursor-pointer bg-indigo-600 text-white hover:bg-indigo-700"
+                disabled={!resolvedSelectedFlowId}
               >
                 <Send className="h-3.5 w-3.5" />
                 Send
@@ -165,10 +174,16 @@ export default function FlowSimulator({ isOpen, onClose }: FlowSimulatorProps) {
             </div>
           </div>
 
-          <div className="rounded-md border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-900">
-            Tip: this simulator currently echoes test input as mock incoming response for the
-            selected flow.
-          </div>
+          {flowOptions.length > 0 ? (
+            <div className="rounded-md border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-900">
+              Tip: this simulator currently echoes test input as mock incoming response for the
+              selected flow.
+            </div>
+          ) : (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+              No root flow groups found. Create a flow group first, then open simulator.
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
