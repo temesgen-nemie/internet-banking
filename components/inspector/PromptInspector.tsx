@@ -52,6 +52,7 @@ type PromptNode = {
 
 export default function PromptInspector({ node, updateNodeData }: PromptInspectorProps) {
   const nodes = useFlowStore((s) => s.nodes);
+  const edges = useFlowStore((s) => s.edges);
   const [activeSearchIdx, setActiveSearchIdx] = useState<number | null>(null);
   const [activeFlowSearchIdx, setActiveFlowSearchIdx] = useState<number | null>(null);
 
@@ -64,6 +65,99 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
       n.type !== "start"
   );
   const siblingNames = siblings.map((n) => (n.data as any).name || "").filter(Boolean);
+
+  const variableScope = useMemo(() => {
+    const findOutermostParent = (nodeId: string): string | null => {
+      let current = nodes.find((n) => n.id === nodeId);
+      let outermost: string | null = null;
+      while (current?.parentNode) {
+        outermost = current.parentNode;
+        current = nodes.find((n) => n.id === current?.parentNode);
+      }
+      return outermost;
+    };
+
+    const currentOutermost = findOutermostParent(node.id);
+    const flowNodes = nodes.filter((n) => {
+      if (currentOutermost) {
+        return findOutermostParent(n.id) === currentOutermost || n.id === currentOutermost;
+      }
+      return !n.parentNode;
+    });
+    const flowNodeIds = new Set(flowNodes.map((n) => n.id));
+
+    const persisted = new Set<string>();
+    flowNodes.forEach((n) => {
+      if (n.type === "prompt") {
+        const promptData = (n.data as Record<string, unknown>) || {};
+        if (promptData.persistInput && promptData.persistInputAs) {
+          persisted.add(String(promptData.persistInputAs).trim());
+        }
+        if (promptData.persistByIndex && promptData.persistFieldName) {
+          persisted.add(String(promptData.persistFieldName).trim());
+        }
+      }
+      if (n.type === "action") {
+        const actionData = (n.data as Record<string, unknown>) || {};
+        const persistKeys = Array.isArray(actionData.persistResponseMappingKeys)
+          ? (actionData.persistResponseMappingKeys as string[])
+          : [];
+        persistKeys
+          .map((key) => String(key ?? "").trim())
+          .filter(Boolean)
+          .forEach((key) => persisted.add(key));
+      }
+    });
+
+    const immediate = new Set<string>();
+    const incomingActionIds = edges
+      .filter((edge) => edge.target === node.id && flowNodeIds.has(edge.source))
+      .map((edge) => edge.source);
+
+    incomingActionIds.forEach((actionId) => {
+      const source = nodes.find((n) => n.id === actionId);
+      if (!source || source.type !== "action") return;
+      const actionData = (source.data as Record<string, unknown>) || {};
+      const mapping = (actionData.responseMapping as Record<string, unknown>) || {};
+      const allKeys = Object.keys(mapping)
+        .map((key) => key.trim())
+        .filter(Boolean);
+      const persistedKeys = new Set(
+        (Array.isArray(actionData.persistResponseMappingKeys)
+          ? actionData.persistResponseMappingKeys
+          : []
+        )
+          .map((key) => String(key ?? "").trim())
+          .filter(Boolean)
+      );
+      allKeys.filter((key) => !persistedKeys.has(key)).forEach((key) => immediate.add(key));
+    });
+
+    const available = new Set<string>([...persisted, ...immediate]);
+    return {
+      immediate: Array.from(immediate).sort(),
+      persisted: Array.from(persisted).sort(),
+      available,
+    };
+  }, [edges, node.id, nodes]);
+
+  const messageVariableDiagnostics = useMemo(() => {
+    const text = String(node.data.message ?? "");
+    const re = /{{\s*vars\.([^}\s]+)\s*}}/g;
+    const seen = new Set<string>();
+    const used: string[] = [];
+    let match: RegExpExecArray | null = re.exec(text);
+    while (match) {
+      const key = String(match[1] ?? "").trim();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        used.push(key);
+      }
+      match = re.exec(text);
+    }
+    const invalid = used.filter((key) => !variableScope.available.has(key));
+    return { used, invalid };
+  }, [node.data.message, variableScope.available]);
 
   const rootFlowName = useMemo(() => {
     const rootStart = nodes.find((n) => !n.parentNode && n.type === "start");
@@ -196,6 +290,72 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
             placeholder="Enter message text..."
             onChange={(e) => updateNodeData(node.id, { message: e.target.value })}
           />
+          <div className="mt-2 space-y-2 rounded-md border border-gray-100 bg-gray-50 p-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              Available Vars
+            </div>
+            {variableScope.immediate.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-[10px] text-indigo-600 font-medium">Immediate Next Only</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {variableScope.immediate.map((key) => {
+                    const token = `{{vars.${key}}}`;
+                    return (
+                      <button
+                        key={`imm-${key}`}
+                        type="button"
+                        className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700 hover:bg-indigo-100"
+                        onClick={() =>
+                          updateNodeData(node.id, {
+                            message:
+                              `${String(node.data.message ?? "")}${String(node.data.message ?? "").endsWith(" ") ? "" : " "}${token}`.trim(),
+                          })
+                        }
+                      >
+                        {token}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {variableScope.persisted.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-[10px] text-emerald-600 font-medium">
+                  Persisted (Flow-wide)
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {variableScope.persisted.map((key) => {
+                    const token = `{{vars.${key}}}`;
+                    return (
+                      <button
+                        key={`persist-${key}`}
+                        type="button"
+                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100"
+                        onClick={() =>
+                          updateNodeData(node.id, {
+                            message:
+                              `${String(node.data.message ?? "")}${String(node.data.message ?? "").endsWith(" ") ? "" : " "}${token}`.trim(),
+                          })
+                        }
+                      >
+                        {token}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {variableScope.immediate.length === 0 && variableScope.persisted.length === 0 && (
+              <div className="text-xs text-gray-400">No vars available for this node yet.</div>
+            )}
+            {messageVariableDiagnostics.invalid.length > 0 && (
+              <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                Invalid/out-of-scope vars for this node:{" "}
+                {messageVariableDiagnostics.invalid.map((key) => `{{vars.${key}}}`).join(", ")}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Menu Mode: Logic Routing Rules */}
