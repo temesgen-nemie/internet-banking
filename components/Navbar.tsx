@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BarChart3, ShieldCheck, MoreHorizontal } from "lucide-react";
 import { ModeToggle } from "./nav-items/ModeToggle";
-import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
+import FlowSimulator from "./FlowSimulator";
 import LogsModal from "./logs/LogsModal";
 import AuditModal from "./audit/AuditModal";
 import NodeToolbar from "./nav-items/NodeToolbar";
@@ -28,24 +28,9 @@ export default function Navbar() {
         <div className="hidden flex-1 items-center justify-center gap-2 md:flex">
           <button
             onClick={() => setSimulatorOpen(true)}
-            className="flex items-center gap-2 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
+            className="flex items-center gap-2 py-2.5 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
           >
-            <span className="rounded-sm bg-purple-700 p-1">
-              <svg
-                className="h-4 w-4 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
-            </span>
-            USSD Simulator
+            Flow Simulator
           </button>
           <button
             onClick={() => setLogsOpen(true)}
@@ -80,22 +65,13 @@ export default function Navbar() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onClick={() => setSimulatorOpen(true)}
-                >
-                  USSD Simulator
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setSimulatorOpen(true)}>
+                  Flow Simulator
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onClick={() => setLogsOpen(true)}
-                >
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setLogsOpen(true)}>
                   Logs
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onClick={() => setAuditOpen(true)}
-                >
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setAuditOpen(true)}>
                   Audit Events
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -106,11 +82,8 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* USSD Simulator */}
-      <ResizablePhoneEmulator
-        isOpen={simulatorOpen}
-        onClose={() => setSimulatorOpen(false)}
-      />
+      {/* Flow Simulator */}
+      <FlowSimulator isOpen={simulatorOpen} onClose={() => setSimulatorOpen(false)} />
       <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
       <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
     </nav>
