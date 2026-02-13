@@ -6,7 +6,6 @@ import { ModeToggle } from "./nav-items/ModeToggle";
 import ResizablePhoneEmulator from "./ResizablePhoneEmulator";
 import LogsModal from "./logs/LogsModal";
 import AuditModal from "./audit/AuditModal";
-import QrScanDialog from "./nav-items/QrScanDialog";
 import NodeToolbar from "./nav-items/NodeToolbar";
 import UserMenu from "./nav-items/UserMenu";
 import {
@@ -102,7 +101,6 @@ export default function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <QrScanDialog />
           <ModeToggle />
           <UserMenu />
         </div>
