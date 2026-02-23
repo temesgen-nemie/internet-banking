@@ -464,6 +464,75 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         };
       }
 
+      if (node.type === "router") {
+        interface RouterRoute {
+          when?: Record<string, unknown>;
+          goto?: string;
+          toMainMenu?: boolean;
+          isGoBack?: boolean;
+          goBackTarget?: string;
+          goBackToFlow?: string;
+        }
+        interface RouterNext {
+          routes?: RouterRoute[];
+          default?: string;
+        }
+
+        const nextNode = (data.nextNode as RouterNext) || {};
+        const routesRaw = nextNode.routes || [];
+        const responseMappingRaw =
+          (data.responseMapping as Record<string, unknown>) || {};
+        const responseMapping = Object.fromEntries(
+          Object.entries(responseMappingRaw)
+            .filter(([key]) => key.trim().length > 0)
+            .map(([key, value]) => [key, String(value ?? "")])
+        );
+
+        const routes: FlowRoute[] = routesRaw.map((route) => {
+          if (route.toMainMenu) {
+            return {
+              when: route.when,
+              toMainMenu: true,
+            };
+          }
+
+          if (route.isGoBack) {
+            const routeObj: FlowRoute = {
+              when: route.when,
+              isGoBack: true,
+              goBackTarget: route.goBackTarget || "",
+            };
+            if (route.goBackToFlow && route.goBackToFlow !== flowName) {
+              routeObj.goBackToFlow = route.goBackToFlow;
+            }
+            return routeObj;
+          }
+
+          const target = resolveTarget(route.goto || "");
+          return {
+            when: route.when,
+            goto: target.name || "",
+            gotoId: target.id || "",
+          };
+        });
+
+        const defaultTarget = resolveTarget(nextNode.default || "");
+
+        return {
+          ...base,
+          url: String(data.url ?? ""),
+          method: String(data.method ?? "POST"),
+          responseMapping:
+            Object.keys(responseMapping).length > 0
+              ? responseMapping
+              : undefined,
+          nextNode: {
+            routes,
+            default: defaultTarget.name || "",
+          },
+        };
+      }
+
       return base;
     });
 

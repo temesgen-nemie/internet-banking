@@ -355,6 +355,32 @@ removeNodes: (ids) =>
           }
         }
       }
+      // Router Node Cleanup
+      else if (sourceNode.type === "router") {
+        if (!handle || handle === "default") {
+          updateNodeDataLocal(sourceNode.id, (data) => {
+            const nextNode =
+              (data.nextNode as
+                | { routes?: Array<Record<string, unknown>>; default?: string }
+                | undefined) || {};
+            return { ...data, nextNode: { ...nextNode, default: "" } };
+          });
+        } else if (handle.startsWith("route-")) {
+          const routeIdx = parseInt(handle.split("-")[1], 10);
+          if (!Number.isNaN(routeIdx)) {
+            updateNodeDataLocal(sourceNode.id, (data) => {
+              const nextNode = data.nextNode as
+                | { routes?: Array<Record<string, unknown>>; default?: string }
+                | undefined;
+              if (!nextNode || !nextNode.routes) return data;
+              const routes = [...nextNode.routes];
+              if (!routes[routeIdx]) return data;
+              routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+              return { ...data, nextNode: { ...nextNode, routes } };
+            });
+          }
+        }
+      }
       // Start Node Cleanup
       else if (sourceNode.type === "start") {
         updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, entryNode: "" }));
@@ -556,6 +582,32 @@ removeEdges: (ids) =>
         return;
       }
 
+      if (sourceNode.type === "router") {
+        if (!handle || handle === "default") {
+          updateNodeDataLocal(sourceNode.id, (data) => {
+            const nextNode =
+              (data.nextNode as
+                | { routes?: Array<Record<string, unknown>>; default?: string }
+                | undefined) || {};
+            return { ...data, nextNode: { ...nextNode, default: "" } };
+          });
+        } else if (handle.startsWith("route-")) {
+          const routeIdx = parseInt(handle.split("-")[1], 10);
+          if (Number.isNaN(routeIdx)) return;
+          updateNodeDataLocal(sourceNode.id, (data) => {
+            const nextNode = data.nextNode as
+              | { routes?: Array<Record<string, unknown>>; default?: string }
+              | undefined;
+            if (!nextNode || !nextNode.routes) return data;
+            const routes = [...nextNode.routes];
+            if (!routes[routeIdx]) return data;
+            routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+            return { ...data, nextNode: { ...nextNode, routes } };
+          });
+        }
+        return;
+      }
+
       if (sourceNode.type === "start") {
         updateNodeDataLocal(sourceNode.id, (data) => ({
           ...data,
@@ -580,7 +632,7 @@ setSelectedNodeId: (id) => set({ selectedNodeId: id }),
 openInspector: (id) => {
   try {
     const node = get().nodes.find((n) => n.id === id);
-    const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "script";
+    const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "router" || node?.type === "script";
 
     const el = document.querySelector(
       `.react-flow__node[data-id="${id}"]`

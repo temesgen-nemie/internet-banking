@@ -33,6 +33,7 @@ export type FlowNode = {
   timeoutMs?: number;
   scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string }>;
   endpoint?: string;
+  url?: string;
   method?: string;
   curl?: string;
   wsCurl?: string;

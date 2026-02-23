@@ -35,6 +35,7 @@ import StartNode from "./nodes/StartNode";
 import GroupNode from "./nodes/GroupNode";
 import ConditionNode from "./nodes/ConditionNode";
 import ScriptNode from "./nodes/ScriptNode";
+import RouterNode from "./nodes/RouterNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
@@ -50,6 +51,7 @@ const nodeTypes = {
   group: GroupNode,
   condition: ConditionNode,
   script: ScriptNode,
+  router: RouterNode,
 };
 
 export default function FlowCanvas() {
@@ -452,6 +454,53 @@ export default function FlowCanvas() {
             }
           }
         }
+        else if (sourceNode && sourceNode.type === "router") {
+          const handleId = params.sourceHandle;
+          if (handleId === "default") {
+            const targetNode = nodes.find((n) => n.id === params.target);
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+              toast.error("Unnamed Target Node", {
+                description: "The target node must have a name before you can connect to it.",
+                duration: 5000,
+              });
+              return;
+            }
+            updateNodeData(sourceNode.id, {
+              nextNode: {
+                ...((sourceNode.data.nextNode as object) || {}),
+                default: params.target,
+              },
+            });
+          } else {
+            const routeIdx = parseInt(handleId.split("-")[1], 10);
+            const nextNode = (sourceNode.data.nextNode || { routes: [] }) as {
+              routes?: Array<{
+                toMainMenu?: boolean;
+                isGoBack?: boolean;
+                goto?: string;
+              }>;
+              default?: string;
+            };
+
+            if (!Number.isNaN(routeIdx) && nextNode.routes && nextNode.routes[routeIdx]) {
+              const currentRoute = nextNode.routes[routeIdx];
+              if (currentRoute.toMainMenu || currentRoute.isGoBack) {
+                toast.error("Special routes cannot be connected to a node.");
+                return;
+              }
+
+              const newRoutes = [...nextNode.routes];
+              newRoutes[routeIdx] = {
+                ...newRoutes[routeIdx],
+                goto: params.target || "",
+              };
+
+              updateNodeData(sourceNode.id, {
+                nextNode: { ...nextNode, routes: newRoutes },
+              });
+            }
+          }
+        }
       } else {
         // If no specific handle ID is used (default/legacy handles)
 
@@ -490,6 +539,22 @@ export default function FlowCanvas() {
             return; // REJECT CONNECTION
           }
           updateNodeData(sourceNode.id, { nextNode: params.target });
+        }
+        else if (sourceNode && sourceNode.type === "router") {
+          const targetNode = nodes.find((n) => n.id === params.target);
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+            toast.error("Unnamed Target Node", {
+              description: "The target node must have a name before you can connect to it.",
+              duration: 5000,
+            });
+            return;
+          }
+          updateNodeData(sourceNode.id, {
+            nextNode: {
+              ...((sourceNode.data.nextNode as object) || {}),
+              default: params.target,
+            },
+          });
         }
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
@@ -592,6 +657,8 @@ export default function FlowCanvas() {
         data = { name: "Untitled Group" };
       } else if (type === "condition") {
         data = { name: "", nextNode: { routes: [], default: "" } };
+      } else if (type === "router") {
+        data = { name: "", url: "", method: "POST", responseMapping: {}, nextNode: { routes: [], default: "" } };
       }
 
       addNode({

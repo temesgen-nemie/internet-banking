@@ -40,7 +40,7 @@ export default function NodeToolbar() {
   }, [rfInstance]);
 
   const handleAddNode = useCallback(
-    (type: "prompt" | "action" | "script" | "start" | "condition") => {
+    (type: "prompt" | "action" | "script" | "start" | "condition" | "router") => {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
@@ -51,7 +51,15 @@ export default function NodeToolbar() {
               ? { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] }
               : type === "condition"
                 ? { name: "", nextNode: { routes: [], default: "" } }
-                : { flowName: "", entryNode: "" };
+                : type === "router"
+                  ? {
+                      name: "",
+                      url: "",
+                      method: "POST",
+                      responseMapping: {},
+                      nextNode: { routes: [], default: "" },
+                    }
+                  : { flowName: "", entryNode: "" };
 
       addNode({
         id: uuidv4(),
@@ -66,7 +74,7 @@ export default function NodeToolbar() {
 
   const handleDragStart = (
     event: React.DragEvent<HTMLButtonElement>,
-    nodeType: "prompt" | "action" | "script" | "start" | "condition"
+    nodeType: "prompt" | "action" | "script" | "start" | "condition" | "router"
   ) => {
     if (nodeType === "start" && hasStart) return;
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -136,6 +144,19 @@ export default function NodeToolbar() {
             </svg>
           </span>
           Condition
+        </button>
+        <button
+          className="flex items-center gap-2 rounded-md bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 cursor-pointer"
+          draggable
+          onDragStart={(e) => handleDragStart(e, "router")}
+          onClick={() => handleAddNode("router")}
+        >
+          <span className="rounded-sm bg-orange-700 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 3v12" /><path d="M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6" /><path d="M18 3a3 3 0 1 1-2.2 5" /><path d="M18 13a3 3 0 1 0 2.2 5" /><path d="M8.5 8.5 15.5 5.5" /><path d="M8.5 16.5 15.5 19.5" />
+            </svg>
+          </span>
+          Router
         </button>
         {/* <button
           className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer ${
@@ -210,6 +231,9 @@ export default function NodeToolbar() {
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("condition")}>
               Condition
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("router")}>
+              Router
             </DropdownMenuItem>
             {/* <DropdownMenuItem
               className={`cursor-pointer ${

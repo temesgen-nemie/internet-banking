@@ -10,6 +10,7 @@ import PromptInspector from "./PromptInspector";
 import StartInspector from "./StartInspector";
 import ConditionInspector from "./ConditionInspector";
 import ScriptInspector from "./ScriptInspector";
+import RouterInspector from "./RouterInspector";
 
 export default function InspectorPanel() {
   const {
@@ -83,6 +84,7 @@ export default function InspectorPanel() {
           node.type === "action" ||
           node.type === "prompt" ||
           node.type === "condition" ||
+          node.type === "router" ||
           node.type === "script"
             ? 720
             : 350,
@@ -171,6 +173,14 @@ export default function InspectorPanel() {
     } else if (node.type === "condition") {
       updateNodeData(node.id, {
         name: "",
+        nextNode: { routes: [], default: "" },
+      });
+    } else if (node.type === "router") {
+      updateNodeData(node.id, {
+        name: "",
+        url: "",
+        method: "POST",
+        responseMapping: {},
         nextNode: { routes: [], default: "" },
       });
     } else if (node.type === "script") {
@@ -306,6 +316,9 @@ export default function InspectorPanel() {
 
             {node.type === "condition" && (
               <ConditionInspector node={node} updateNodeData={updateNodeData} />
+            )}
+            {node.type === "router" && (
+              <RouterInspector key={node.id} node={node as any} updateNodeData={updateNodeData} />
             )}
             {node.type === "script" && (
               <ScriptInspector node={node} updateNodeData={updateNodeData} />
