@@ -1,29 +1,44 @@
 "use client";
 
-import dynamic from 'next/dynamic';
-import Navbar from '../components/Navbar';
-import AuthGate from '../components/auth/AuthGate';
-import InspectorPanel from '../components/inspector/InspectorPanel';
-import { useFlowStore } from '../store/flow/flowStore';
-import { Toaster } from 'sonner';
+import dynamic from "next/dynamic";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "../components/Navbar";
+import InspectorPanel from "../components/inspector/InspectorPanel";
+import { useFlowStore } from "../store/flow/flowStore";
+import { useAuthStore } from "../store/authStore";
+import { Toaster } from "sonner";
 
-const FlowCanvas = dynamic(() => import('../components/FlowCanvas'), { ssr: false });
+const FlowCanvas = dynamic(() => import("../components/FlowCanvas"), {
+  ssr: false,
+});
 
 export default function Home() {
+  const router = useRouter();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const inspectorOpen = useFlowStore((s) => s.inspectorOpen);
+  const selectedNodeId = useFlowStore((s) => s.selectedNodeId);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, router]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
-    <AuthGate>
-      <div className='h-screen flex flex-col'>
-        <Navbar />
+    <div className="flex h-screen flex-col">
+      <Navbar />
 
-        <div className='flex-1 relative'>
-          <FlowCanvas />
-          <Toaster position="top-right" richColors />
+      <div className="relative flex-1">
+        <FlowCanvas />
+        <Toaster position="top-right" richColors />
 
-          {useFlowStore((s) => s.inspectorOpen) && (
-            <InspectorPanel key={useFlowStore.getState().selectedNodeId} />
-          )}
-        </div>
+        {inspectorOpen && <InspectorPanel key={selectedNodeId} />}
       </div>
-    </AuthGate>
+    </div>
   );
 }
