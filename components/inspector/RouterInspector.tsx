@@ -173,8 +173,8 @@ export default function RouterInspector({
       <div>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <label className="text-sm font-bold text-gray-800">Response Mapping</label>
-            <p className="text-xs text-gray-500 mt-0.5">Map response keys to template expressions</p>
+            <label className="text-sm font-bold text-gray-800">Request Mapping</label>
+            <p className="text-xs text-gray-500 mt-0.5">Map request keys to template expressions</p>
           </div>
           <button
             onClick={addMappingRow}
