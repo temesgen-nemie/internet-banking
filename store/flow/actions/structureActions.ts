@@ -10,6 +10,11 @@ type GroupJsonModalState = {
   json: string;
 };
 
+type NodeJsonModalState = {
+  isOpen: boolean;
+  nodeId: string | null;
+};
+
 type NamerModalState = {
   isOpen: boolean;
   nodeIds: string[];
@@ -25,6 +30,7 @@ type StructureActionsState = {
   selectedNodeId: string | null;
   namerModal: NamerModalState | null;
   groupJsonModal: GroupJsonModalState | null;
+  nodeJsonModal: NodeJsonModalState | null;
 };
 
 type StoreSet = (
@@ -44,6 +50,8 @@ type StructureActions = {
   openGroupJson: (groupId: string) => void;
   closeGroupJson: () => void;
   applyGroupJson: (groupId: string, jsonText: string) => void;
+  openNodeJson: (nodeId: string) => void;
+  closeNodeJson: () => void;
 };
 
 export const createStructureActions = ({
@@ -223,6 +231,8 @@ export const createStructureActions = ({
     });
   },
   closeGroupJson: () => set({ groupJsonModal: null }),
+  openNodeJson: (nodeId) => set({ nodeJsonModal: { isOpen: true, nodeId } }),
+  closeNodeJson: () => set({ nodeJsonModal: null }),
   applyGroupJson: (groupId, jsonText) => {
     if (!groupId) {
       throw new Error("Missing group id.");
@@ -389,6 +399,14 @@ export const createStructureActions = ({
           nextData.nextNode = flowNode.nextNode;
         }
 
+        return { ...node, data: nextData };
+      }
+
+      if (node.type === "functionCall") {
+        nextData.functionName = flowNode.functionName ?? nextData.functionName;
+        nextData.args = flowNode.args ?? nextData.args;
+        nextData.saveAs = flowNode.saveAs ?? nextData.saveAs;
+        nextData.nextNode = flowNode.nextNode ?? nextData.nextNode;
         return { ...node, data: nextData };
       }
 

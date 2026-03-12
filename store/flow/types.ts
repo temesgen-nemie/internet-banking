@@ -15,6 +15,9 @@ export type FlowNode = {
   id: string;
   name?: string;
   type: string;
+  functionName?: string;
+  args?: Record<string, unknown>;
+  saveAs?: string;
   message?: string;
   persistByIndex?: boolean;
   persistByIndexValue?: string;

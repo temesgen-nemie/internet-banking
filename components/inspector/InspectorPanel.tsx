@@ -11,6 +11,7 @@ import StartInspector from "./StartInspector";
 import ConditionInspector from "./ConditionInspector";
 import ScriptInspector from "./ScriptInspector";
 import RouterInspector from "./RouterInspector";
+import FunctionCallInspector from "./FunctionCallInspector";
 
 export default function InspectorPanel() {
   const {
@@ -86,6 +87,7 @@ export default function InspectorPanel() {
           node.type === "condition" ||
           node.type === "router" ||
           node.type === "script"
+          || node.type === "functionCall"
             ? 720
             : 350,
         height: 0, // allow auto height
@@ -190,6 +192,14 @@ export default function InspectorPanel() {
         timeoutMs: 25,
         nextNode: "",
         routes: [],
+      });
+    } else if (node.type === "functionCall") {
+      updateNodeData(node.id, {
+        name: "",
+        functionName: "",
+        args: {},
+        saveAs: "",
+        nextNode: "",
       });
     }
   };
@@ -322,6 +332,13 @@ export default function InspectorPanel() {
             )}
             {node.type === "script" && (
               <ScriptInspector node={node} updateNodeData={updateNodeData} />
+            )}
+            {node.type === "functionCall" && (
+              <FunctionCallInspector
+                key={node.id}
+                node={node as any}
+                updateNodeData={updateNodeData}
+              />
             )}
           </div>
 

@@ -36,8 +36,10 @@ import GroupNode from "./nodes/GroupNode";
 import ConditionNode from "./nodes/ConditionNode";
 import ScriptNode from "./nodes/ScriptNode";
 import RouterNode from "./nodes/RouterNode";
+import FunctionCallNode from "./nodes/FunctionCallNode";
 import GroupNamerModal from "./modals/GroupNamerModal";
 import GroupJsonModal from "./modals/GroupJsonModal";
+import NodeJsonModal from "./modals/NodeJsonModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
 import RefreshConfirmModal from "./modals/RefreshConfirmModal";
 import FlowBreadcrumb from "./FlowBreadcrumb";
@@ -52,6 +54,7 @@ const nodeTypes = {
   condition: ConditionNode,
   script: ScriptNode,
   router: RouterNode,
+  functionCall: FunctionCallNode,
 };
 
 export default function FlowCanvas() {
@@ -96,9 +99,11 @@ export default function FlowCanvas() {
     openNamer,
     ungroupNodes,
     openGroupJson,
+    openNodeJson,
     publishGroup,
     namerModal,
     groupJsonModal,
+    nodeJsonModal,
     loadAllFlows,
     isLoading,
     _hasHydrated,
@@ -399,6 +404,21 @@ export default function FlowCanvas() {
             }
           }
         }
+        // 3b. Function Call
+        else if (sourceNode && sourceNode.type === "functionCall") {
+          const handleId = params.sourceHandle;
+          if (!handleId || handleId === "default") {
+            const targetNode = nodes.find((n) => n.id === params.target);
+            if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+              toast.error("Unnamed Target Node", {
+                description: "The target node must have a name before you can connect to it.",
+                duration: 5000,
+              });
+              return;
+            }
+            updateNodeData(sourceNode.id, { nextNode: params.target });
+          }
+        }
         // 4. Condition Routes
         else if (sourceNode && sourceNode.type === "condition") {
           const handleId = params.sourceHandle;
@@ -540,6 +560,17 @@ export default function FlowCanvas() {
           }
           updateNodeData(sourceNode.id, { nextNode: params.target });
         }
+        else if (sourceNode && sourceNode.type === "functionCall") {
+          const targetNode = nodes.find((n) => n.id === params.target);
+          if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
+            toast.error("Unnamed Target Node", {
+              description: "The target node must have a name before you can connect to it.",
+              duration: 5000,
+            });
+            return;
+          }
+          updateNodeData(sourceNode.id, { nextNode: params.target });
+        }
         else if (sourceNode && sourceNode.type === "router") {
           const targetNode = nodes.find((n) => n.id === params.target);
           if (targetNode && !targetNode.data.name && targetNode.type !== "group") {
@@ -651,6 +682,8 @@ export default function FlowCanvas() {
         data = { endpoint: "", requestSource: "api" };
       } else if (type === "script") {
         data = { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] };
+      } else if (type === "functionCall") {
+        data = { name: "", functionName: "", args: {}, saveAs: "", nextNode: "" };
       } else if (type === "start") {
         data = { flowName: "", entryNode: "" };
       } else if (type === "group") {
@@ -1122,6 +1155,28 @@ export default function FlowCanvas() {
                       </div>
                       View Group JSON
                     </button>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                      onClick={() => openNodeJson(menu.id)}
+                    >
+                      <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                          />
+                        </svg>
+                      </div>
+                      View Node JSON
+                    </button>
                     {(() => {
                       const children = nodes.filter((n) => n.parentNode === menu.id);
                       const startNode = children.find((n) => n.type === "start");
@@ -1398,28 +1453,52 @@ export default function FlowCanvas() {
                   </div>
                 )}
                 {nodes.find((n) => n.id === menu.id)?.type !== "group" && (
-                  <button
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-bold transition-all group/item"
-                    onClick={() => removeNode(menu.id)}
-                  >
-                    <div className="p-1.5 bg-red-100 rounded-lg group-hover/item:bg-red-600 group-hover/item:text-white transition-colors">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2.5}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </div>
-                    Delete Node
-                  </button>
+                  <>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
+                      onClick={() => openNodeJson(menu.id)}
+                    >
+                      <div className="p-1.5 bg-indigo-100 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-colors">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                          />
+                        </svg>
+                      </div>
+                      View Node JSON
+                    </button>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-bold transition-all group/item"
+                      onClick={() => removeNode(menu.id)}
+                    >
+                      <div className="p-1.5 bg-red-100 rounded-lg group-hover/item:bg-red-600 group-hover/item:text-white transition-colors">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </div>
+                      Delete Node
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -1456,6 +1535,7 @@ export default function FlowCanvas() {
       {/* Modals */}
       {namerModal?.isOpen && <GroupNamerModal />}
       {groupJsonModal?.isOpen && <GroupJsonModal />}
+      {nodeJsonModal?.isOpen && <NodeJsonModal />}
       <RefreshConfirmModal />
       {deleteModal.isOpen && (
         <DeleteConfirmModal

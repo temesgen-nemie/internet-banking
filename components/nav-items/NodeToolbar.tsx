@@ -40,7 +40,7 @@ export default function NodeToolbar() {
   }, [rfInstance]);
 
   const handleAddNode = useCallback(
-    (type: "prompt" | "action" | "script" | "start" | "condition" | "router") => {
+    (type: "prompt" | "action" | "script" | "functionCall" | "start" | "condition" | "router") => {
       if (type === "start" && hasStart) return;
       const data =
         type === "prompt"
@@ -49,6 +49,8 @@ export default function NodeToolbar() {
             ? { endpoint: "", requestSource: "api" as const }
             : type === "script"
               ? { name: "", script: "", timeoutMs: 25, nextNode: "", routes: [] }
+              : type === "functionCall"
+                ? { name: "", functionName: "", args: {}, saveAs: "", nextNode: "" }
               : type === "condition"
                 ? { name: "", nextNode: { routes: [], default: "" } }
                 : type === "router"
@@ -74,7 +76,7 @@ export default function NodeToolbar() {
 
   const handleDragStart = (
     event: React.DragEvent<HTMLButtonElement>,
-    nodeType: "prompt" | "action" | "script" | "start" | "condition" | "router"
+    nodeType: "prompt" | "action" | "script" | "functionCall" | "start" | "condition" | "router"
   ) => {
     if (nodeType === "start" && hasStart) return;
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -119,6 +121,32 @@ export default function NodeToolbar() {
             <Code2 className="h-4 w-4 text-white" />
           </span>
           Script
+        </button>
+        <button
+          className="flex items-center gap-2 rounded-md bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 cursor-pointer"
+          draggable
+          onDragStart={(e) => handleDragStart(e, "functionCall")}
+          onClick={() => handleAddNode("functionCall")}
+        >
+          <span className="rounded-sm bg-teal-700 p-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8 7h8" />
+              <path d="M8 12h8" />
+              <path d="M8 17h8" />
+              <path d="M5 5v14" />
+              <path d="M19 5v14" />
+            </svg>
+          </span>
+          Function
         </button>
         <button
           className="flex items-center gap-2 rounded-md bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-700 cursor-pointer"
@@ -228,6 +256,12 @@ export default function NodeToolbar() {
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("script")}>
               Script
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleAddNode("functionCall")}
+            >
+              Function
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onClick={() => handleAddNode("condition")}>
               Condition

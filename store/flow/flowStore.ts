@@ -60,6 +60,12 @@ interface FlowState {
   openGroupJson: (groupId: string) => void;
   closeGroupJson: () => void;
   applyGroupJson: (groupId: string, jsonText: string) => void;
+  nodeJsonModal: {
+    isOpen: boolean;
+    nodeId: string | null;
+  } | null;
+  openNodeJson: (nodeId: string) => void;
+  closeNodeJson: () => void;
 
   rfInstance: ReactFlowInstance | null;
   setRfInstance: (instance: ReactFlowInstance) => void;
@@ -114,6 +120,7 @@ export const useFlowStore = create<FlowState>()(
       currentSubflowId: null,
       namerModal: null,
       groupJsonModal: null,
+      nodeJsonModal: null,
       isLoading: false,
       publishedGroupIds: [],
       modifiedGroupIds: [],
