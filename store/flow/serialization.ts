@@ -411,6 +411,36 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         };
       }
 
+      if (node.type === "functionCall") {
+        const functionName = String((data as any).functionName ?? "");
+        const saveAs = String((data as any).saveAs ?? "");
+        const nextNodeRaw = typeof data.nextNode === "string" ? data.nextNode : "";
+        const resolved = resolveTarget(nextNodeRaw || "");
+
+        let args: Record<string, unknown> | undefined;
+        const rawArgs = (data as any).args;
+        if (rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs)) {
+          args = rawArgs as Record<string, unknown>;
+        } else if (typeof rawArgs === "string") {
+          try {
+            const parsed = JSON.parse(rawArgs) as Record<string, unknown>;
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              args = parsed;
+            }
+          } catch {
+            args = undefined;
+          }
+        }
+
+        return {
+          ...base,
+          functionName,
+          args: args ?? {},
+          saveAs,
+          nextNode: resolved.name || "",
+        };
+      }
+
       if (node.type === "script") {
         const nextNodeRaw = typeof data.nextNode === "string" ? data.nextNode : "";
         const resolved = resolveTarget(nextNodeRaw || "");

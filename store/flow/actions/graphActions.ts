@@ -632,7 +632,13 @@ setSelectedNodeId: (id) => set({ selectedNodeId: id }),
 openInspector: (id) => {
   try {
     const node = get().nodes.find((n) => n.id === id);
-    const isLarge = node?.type === "action" || node?.type === "prompt" || node?.type === "condition" || node?.type === "router" || node?.type === "script";
+    const isLarge =
+      node?.type === "action" ||
+      node?.type === "prompt" ||
+      node?.type === "condition" ||
+      node?.type === "router" ||
+      node?.type === "script" ||
+      node?.type === "functionCall";
 
     const el = document.querySelector(
       `.react-flow__node[data-id="${id}"]`

@@ -84,7 +84,7 @@ export default function RouterInspector({
     updateRoutes([
       ...routes,
       {
-        when: { eq: ["{{http.body.input}}", ""] },
+        when: { eq: ["", ""] },
         goto: "",
       },
     ]);
@@ -248,10 +248,16 @@ export default function RouterInspector({
 
         <div className="space-y-3">
           {routes.map((route, idx) => {
-            const left = route.when?.eq?.[0] || "{{http.body.input}}";
-            const right = route.when?.eq?.[1] || "";
-            const isGoBack = Boolean(route.isGoBack);
-            const isMainMenu = Boolean(route.toMainMenu);
+            const when = route.when || {};
+            const operatorKey =
+              (Object.keys(when)[0] as "eq" | "ne" | "like" | "contains" | undefined) || "eq";
+            const operator = operatorKey === "contains" ? "like" : operatorKey;
+            const operands =
+              (when as Record<string, [string, string]>)[operatorKey] ||
+              (when as Record<string, [string, string]>)[operator];
+            const left = operands?.[0] || "";
+            const displayLeft = left === "{{http.body.input}}" ? "" : left;
+            const right = operands?.[1] || "";
 
             return (
               <div
@@ -278,21 +284,41 @@ export default function RouterInspector({
                   </svg>
                 </button>
 
-                <div className="grid grid-cols-2 gap-2 pr-8 mb-3">
+                <div className="grid grid-cols-[1fr_120px_1fr] gap-2 pr-8 mb-3 items-end">
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
                       Input Source
                     </label>
                     <input
                       className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none font-mono text-gray-800 bg-white shadow-sm transition-all"
-                      value={left}
+                      value={displayLeft}
+                      placeholder="{{http.body.input}}"
                       onChange={(e) =>
                         updateRoute(idx, (r) => ({
                           ...r,
-                          when: { eq: [e.target.value, right] },
+                          when: { [operator]: [e.target.value, right] },
                         }))
                       }
                     />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                      Operator
+                    </label>
+                    <select
+                      className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-gray-800 bg-white shadow-sm transition-all cursor-pointer"
+                      value={operator}
+                      onChange={(e) =>
+                        updateRoute(idx, (r) => ({
+                          ...r,
+                          when: { [e.target.value]: [left, right] },
+                        }))
+                      }
+                    >
+                      <option value="like">Like</option>
+                      <option value="eq">Equals</option>
+                      <option value="ne">Not Equals</option>
+                    </select>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
@@ -305,93 +331,23 @@ export default function RouterInspector({
                       onChange={(e) =>
                         updateRoute(idx, (r) => ({
                           ...r,
-                          when: { eq: [left, e.target.value] },
+                          when: { [operator]: [left, e.target.value] },
                         }))
                       }
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-3">
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={isMainMenu}
-                      onChange={(e) =>
-                        updateRoute(idx, (r) => ({
-                          ...r,
-                          toMainMenu: e.target.checked,
-                          isGoBack: e.target.checked ? false : r.isGoBack,
-                          goto: e.target.checked ? "" : r.goto,
-                        }))
-                      }
-                    />
-                    To Main Menu
+                <div className="pt-2 border-t border-gray-200/70">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-2 block">
+                    Target
                   </label>
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={isGoBack}
-                      onChange={(e) =>
-                        updateRoute(idx, (r) => ({
-                          ...r,
-                          isGoBack: e.target.checked,
-                          toMainMenu: e.target.checked ? false : r.toMainMenu,
-                          goto: e.target.checked ? "" : r.goto,
-                        }))
-                      }
-                    />
-                    Go Back
-                  </label>
+                  <TargetNodeDisplay
+                    nodeId={String(route.goto || "")}
+                    label=""
+                    title="Connect this route handle on the canvas to set destination"
+                  />
                 </div>
-
-                {isGoBack ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
-                        Go Back Target
-                      </label>
-                      <input
-                        className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-gray-800 bg-white shadow-sm transition-all"
-                        value={String(route.goBackTarget || "")}
-                        placeholder="PreviousStep"
-                        onChange={(e) =>
-                          updateRoute(idx, (r) => ({
-                            ...r,
-                            goBackTarget: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
-                        Go Back Flow
-                      </label>
-                      <input
-                        className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-gray-800 bg-white shadow-sm transition-all"
-                        value={String(route.goBackToFlow || "")}
-                        placeholder="Transfers"
-                        onChange={(e) =>
-                          updateRoute(idx, (r) => ({
-                            ...r,
-                            goBackToFlow: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                ) : isMainMenu ? null : (
-                  <div className="pt-2 border-t border-gray-200/70">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-2 block">
-                      Target
-                    </label>
-                    <TargetNodeDisplay
-                      nodeId={String(route.goto || "")}
-                      label=""
-                      title="Connect this route handle on the canvas to set destination"
-                    />
-                  </div>
-                )}
               </div>
             );
           })}
