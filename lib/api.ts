@@ -1,7 +1,8 @@
 import axios, { AxiosError } from "axios";
 import type { FlowJson, FlowNode } from "../store/flow/types";
 
-export const API_BASE_URL = "https://ussdtool.profilesage.com";
+export const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "https://ussdtool.profilesage.com";
 
 const api = axios.create({
     baseURL: API_BASE_URL,
