@@ -124,12 +124,6 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
     }
   };
 
-  const deriveProjectName = (pathValue: string) => {
-    const cleaned = pathValue.trim().replace(/\\/g, "/");
-    if (!cleaned) return "";
-    const parts = cleaned.split("/").filter(Boolean);
-    return parts[parts.length - 1] || "";
-  };
 
   useEffect(() => {
     if (open) {
@@ -337,16 +331,10 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                     className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400"
                     value={createForm.projectPath}
                     onChange={(e) =>
-                      setCreateForm((prev) => {
-                        const nextPath = e.target.value;
-                        const derived = deriveProjectName(nextPath);
-                        return {
-                          ...prev,
-                          projectPath: nextPath,
-                          projectNameAndRootFormat:
-                            derived || prev.projectNameAndRootFormat,
-                        };
-                      })
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        projectPath: e.target.value,
+                      }))
                     }
                     placeholder="apps/utilities"
                   />
@@ -358,8 +346,8 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                   <input
                     className="w-full text-sm border-2 border-gray-200 rounded-lg bg-gray-50 px-3 py-2 text-gray-700"
                     value={createForm.projectNameAndRootFormat}
-                    placeholder="project name"
-                    readOnly={Boolean(createForm.projectPath.trim())}
+                    placeholder="as-provided"
+                    readOnly
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
