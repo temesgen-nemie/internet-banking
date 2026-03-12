@@ -299,12 +299,12 @@ export const fetchServices = async (depth = 5): Promise<ServicesResponse> => {
 
 export type CreateServicePayload = {
     projectPath: string;
-    projectNameAndRootFormat: "as-provided";
-    framework: "express";
-    bundler: "esbuild";
-    unitTestRunner: "none";
-    e2eTestRunner: "none";
-    linter: "eslint";
+    projectNameAndRootFormat: string;
+    framework: string;
+    bundler: string;
+    unitTestRunner: string;
+    e2eTestRunner: string;
+    linter: string;
     dryRun: boolean;
 };
 
