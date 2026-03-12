@@ -8,6 +8,7 @@ import LogsModal from "./logs/LogsModal";
 import AuditModal from "./audit/AuditModal";
 import NodeToolbar from "./nav-items/NodeToolbar";
 import UserMenu from "./nav-items/UserMenu";
+import ServicesBrowserModal from "./modals/ServicesBrowserModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ export default function Navbar() {
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-card/95 text-card-foreground border-b border-border shadow-sm backdrop-blur">
@@ -26,6 +28,12 @@ export default function Navbar() {
         <NodeToolbar />
 
         <div className="hidden flex-1 items-center justify-center gap-2 md:flex">
+          <button
+            onClick={() => setServicesOpen(true)}
+            className="flex items-center gap-2 py-2.5 rounded-md bg-linear-to-r from-slate-600 to-slate-700 px-4 text-xs font-semibold text-white hover:from-slate-700 hover:to-slate-800 cursor-pointer shadow-md hover:shadow-lg transition-all"
+          >
+            Services
+          </button>
           <button
             onClick={() => setSimulatorOpen(true)}
             className="flex items-center gap-2 py-2.5 rounded-md bg-linear-to-r from-purple-600 to-indigo-600 px-4 text-xs font-semibold text-white hover:from-purple-700 hover:to-indigo-700 cursor-pointer shadow-md hover:shadow-lg transition-all"
@@ -65,6 +73,9 @@ export default function Navbar() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setServicesOpen(true)}>
+                  Services
+                </DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer" onClick={() => setSimulatorOpen(true)}>
                   Flow Simulator
                 </DropdownMenuItem>
@@ -84,6 +95,7 @@ export default function Navbar() {
 
       {/* Flow Simulator */}
       <FlowSimulator isOpen={simulatorOpen} onClose={() => setSimulatorOpen(false)} />
+      <ServicesBrowserModal open={servicesOpen} onClose={() => setServicesOpen(false)} />
       <LogsModal open={logsOpen} onOpenChange={setLogsOpen} />
       <AuditModal open={auditOpen} onOpenChange={setAuditOpen} />
     </nav>
