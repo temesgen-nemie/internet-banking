@@ -1,27 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { updateFlow } from "../../lib/api";
 import { useFlowStore, type FlowJson } from "../../store/flow/flowStore";
 
 export default function GroupJsonModal() {
   const { groupJsonModal, closeGroupJson, nodes, getRecursiveSubflowJson } = useFlowStore();
   const [isDeep, setIsDeep] = useState(false);
-  const [draftJson, setDraftJson] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const isOpen = Boolean(groupJsonModal?.isOpen);
 
-  useEffect(() => {
-    if (isOpen && groupJsonModal?.groupId) {
-      if (isDeep) {
-        setDraftJson(getRecursiveSubflowJson(groupJsonModal.groupId));
-      } else {
-        setDraftJson(groupJsonModal.json);
-      }
-      setError(null);
-    }
+  const draftJson = useMemo(() => {
+    if (!isOpen || !groupJsonModal?.groupId) return "";
+    return isDeep
+      ? getRecursiveSubflowJson(groupJsonModal.groupId)
+      : groupJsonModal.json;
   }, [isOpen, groupJsonModal, isDeep, getRecursiveSubflowJson]);
 
   if (!isOpen || !groupJsonModal) return null;
@@ -100,7 +93,6 @@ export default function GroupJsonModal() {
               className="w-full min-h-[40vh] text-gray-500 whitespace-pre-wrap bg-transparent outline-none resize-none cursor-default"
             />
           </div>
-          {error && <div className="mt-3 text-xs font-semibold text-red-600">{error}</div>}
         </div>
 
         <div className="px-8 py-4 bg-indigo-50/30 border-t border-indigo-50 flex justify-end gap-3">
