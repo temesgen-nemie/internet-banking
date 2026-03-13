@@ -95,17 +95,6 @@ export default function InspectorPanel() {
     }
   }, [node?.type]);
 
-  if (!node) {
-    return (
-      <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="w-80 rounded-lg bg-white p-4 shadow-2xl text-center">
-          <div className="text-gray-600">No node selected</div>
-          <div className="text-sm text-gray-400">Double-click a node to open the inspector</div>
-        </div>
-      </div>
-    );
-  }
-
   const isScriptNameMissing = node.type === "script" && !String(node.data?.name ?? "").trim();
 
   const baseStyle: CSSProperties = inspectorPosition
@@ -258,6 +247,17 @@ export default function InspectorPanel() {
       };
     }
   }, [isDragging, isResizing, dragStart, resizeStart]);
+
+  if (!node) {
+    return (
+      <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="w-80 rounded-lg bg-white p-4 shadow-2xl text-center">
+          <div className="text-gray-600">No node selected</div>
+          <div className="text-sm text-gray-400">Double-click a node to open the inspector</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pointer-events-none" onClick={(e) => e.stopPropagation()}>

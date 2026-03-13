@@ -54,7 +54,7 @@ export default function NodeJsonModal() {
       title: `${node.type} JSON`,
       jsonText: JSON.stringify(fallback, null, 2),
     };
-  }, [edges, isOpen, nodeJsonModal?.nodeId, nodes]);
+  }, [edges, isOpen, nodeJsonModal, nodes]);
 
   if (!isOpen || !nodeJsonModal) return null;
 
