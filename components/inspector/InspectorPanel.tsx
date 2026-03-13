@@ -369,12 +369,11 @@ export default function InspectorPanel() {
                     toast.error("Flow name not found.");
                     return;
                   }
-                  if (!user?.userId) {
-                    toast.error("Missing user information.");
-                    return;
-                  }
-                  if (!user.isAdmin) {
-                    const hasPermission = await checkMyFlowPermission(flowName, user.userId);
+                  if (user && !user.isAdmin) {
+                    const hasPermission = await checkMyFlowPermission(
+                      flowName,
+                      user.userId ?? ""
+                    );
                     if (!hasPermission) {
                       toast.error("You don't have permission to update this flow.");
                       if (originalDataRef.current) {

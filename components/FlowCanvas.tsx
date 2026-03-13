@@ -1082,15 +1082,11 @@ export default function FlowCanvas() {
                           toast.error("Flow name not found.");
                           return;
                         }
-                        if (!user?.userId) {
-                          toast.error("Missing user information.");
-                          return;
-                        }
                         try {
-                          if (!user.isAdmin) {
+                          if (user && !user.isAdmin) {
                             const hasPermission = await checkMyFlowPermission(
                               flowName,
-                              user.userId
+                              user.userId ?? ""
                             );
                             if (!hasPermission) {
                               toast.error("You don't have permission to update this flow.");
@@ -1260,15 +1256,11 @@ export default function FlowCanvas() {
                                 toast.error("Flow name not found.");
                                 return;
                               }
-                              if (!user?.userId) {
-                                toast.error("Missing user information.");
-                                return;
-                              }
                               try {
-                                if (!user.isAdmin) {
+                                if (user && !user.isAdmin) {
                                   const hasPermission = await checkMyFlowPermission(
                                     flowName,
-                                    user.userId
+                                    user.userId ?? ""
                                   );
                                   if (!hasPermission) {
                                     toast.error("You don't have permission to update this flow.");
@@ -1318,15 +1310,11 @@ export default function FlowCanvas() {
                                 toast.error("Flow name not found.");
                                 return;
                               }
-                              if (!user?.userId) {
-                                toast.error("Missing user information.");
-                                return;
-                              }
                               try {
-                                if (!user.isAdmin) {
+                                if (user && !user.isAdmin) {
                                   const hasPermission = await checkMyFlowPermission(
                                     flowName,
-                                    user.userId
+                                    user.userId ?? ""
                                   );
                                   if (!hasPermission) {
                                     toast.error("You don't have permission to delete this flow.");
@@ -1392,15 +1380,11 @@ export default function FlowCanvas() {
                               toast.error("Flow name not found.");
                               return;
                             }
-                            if (!user?.userId) {
-                              toast.error("Missing user information.");
-                              return;
-                            }
                             try {
-                              if (!user.isAdmin) {
+                              if (user && !user.isAdmin) {
                                 const hasPermission = await checkMyFlowPermission(
                                   flowName,
-                                  user.userId
+                                  user.userId ?? ""
                                 );
                                 if (!hasPermission) {
                                   toast.error("You don't have permission to update this flow.");
