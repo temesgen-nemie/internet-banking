@@ -95,7 +95,8 @@ export default function InspectorPanel() {
     }
   }, [node?.type]);
 
-  const isScriptNameMissing = node.type === "script" && !String(node.data?.name ?? "").trim();
+  const isScriptNameMissing =
+    node?.type === "script" && !String(node?.data?.name ?? "").trim();
 
   const baseStyle: CSSProperties = inspectorPosition
     ? {
@@ -125,6 +126,7 @@ export default function InspectorPanel() {
       };
 
   const handleReset = () => {
+    if (!node) return;
     if (node.type === "prompt") {
       updateNodeData(node.id, {
         name: "",
