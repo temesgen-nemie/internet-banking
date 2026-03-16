@@ -43,6 +43,17 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
     typeof data.nextNode === "object" &&
     Array.isArray((data.nextNode as PromptNextNode).routes);
 
+  const toText = (value: unknown, fallback = "") => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "string" || typeof value === "number") return String(value);
+    if (Array.isArray(value)) return value.map((v) => String(v)).join(", ");
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  };
+
   return (
     <div
       className={`group rounded-xl p-4 w-64 bg-white shadow-md border transition-all duration-200
@@ -77,7 +88,7 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
             data.nextNode.routes &&
             data.nextNode.routes.map((route: any, idx: number) => {
               // Extract input value from condition: { "eq": ["{{input}}", "1"] }
-              const matchVal = route.when?.eq?.[1] || "?";
+              const matchVal = toText(route.when?.eq?.[1], "?");
               const isGoBack = route.isGoBack || false;
               const isMainMenu = (route as any).toMainMenu || route.isMainMenu || false;
               const handleId = `route-${idx}`;
