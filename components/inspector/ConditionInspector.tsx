@@ -8,15 +8,320 @@ type ConditionInspectorProps = {
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
 };
 
+type Operand = string | number | boolean | null;
+
+type LeafOp =
+  | "eq"
+  | "ne"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "like"
+  | "matches"
+  | "contains"
+  | "exists";
+
+type GroupOp = "or" | "and";
+
+type UiExpr =
+  | {
+      kind: "cond";
+      op: LeafOp;
+      left: string;
+      right: string;
+      negate: boolean;
+    }
+  | {
+      kind: "group";
+      op: GroupOp;
+      items: UiExpr[];
+      negate: boolean;
+    };
+
 type ConditionRoute = {
-  when?: Record<string, [string, string | number]>;
+  when?: Record<string, unknown>;
   goto?: string;
 };
+
+const defaultExpr = (): UiExpr => ({ kind: "cond", op: "eq", left: "", right: "", negate: false });
+
+function ConditionExprEditor({
+  value,
+  onChange,
+  depth,
+}: {
+  value: UiExpr;
+  onChange: (next: UiExpr) => void;
+  depth: number;
+}) {
+  const indent = depth * 12;
+
+  const header = (
+    <div className="flex items-center gap-2" style={{ paddingLeft: indent }}>
+      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</label>
+      <select
+        className="text-xs px-2 py-2 rounded-lg border-2 border-gray-200 bg-white font-bold text-gray-700 cursor-pointer hover:border-pink-300 focus:outline-none focus:ring-4 focus:ring-pink-100 shadow-sm transition-all"
+        value={value.kind === "group" ? value.op : "single"}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "single") {
+            if (value.kind === "cond") return;
+            const first = value.items[0] || defaultExpr();
+            onChange(first);
+            return;
+          }
+          const op = v as GroupOp;
+          if (value.kind === "group") {
+            onChange({ ...value, op });
+            return;
+          }
+          onChange({ kind: "group", op, items: [value, defaultExpr()], negate: false });
+        }}
+      >
+        <option value="single">Single</option>
+        <option value="or">OR group</option>
+        <option value="and">AND group</option>
+      </select>
+    </div>
+  );
+
+  if (value.kind === "group") {
+    return (
+      <div className="space-y-2">
+        {header}
+        <div style={{ paddingLeft: indent }} className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-[10px] text-gray-600 font-semibold select-none">
+            <input
+              type="checkbox"
+              checked={value.negate}
+              onChange={(e) => onChange({ ...value, negate: e.target.checked })}
+            />
+            NOT (negate group)
+          </label>
+        </div>
+
+        <div className="space-y-2">
+          {value.items.map((child, childIdx) => (
+            <div
+              key={childIdx}
+              className="relative rounded-lg border border-gray-200 bg-white/60 p-2"
+              style={{ marginLeft: indent }}
+            >
+              <button
+                className="absolute top-1.5 right-1.5 text-gray-300 hover:text-red-500 p-1 transition-all hover:bg-red-50 rounded-md"
+                title="Remove item"
+                onClick={() => {
+                  const nextItems = value.items.filter((_, i) => i !== childIdx);
+                  onChange({ ...value, items: nextItems.length ? nextItems : [defaultExpr()] });
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-3.5 w-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+
+              <ConditionExprEditor
+                value={child}
+                depth={depth + 1}
+                onChange={(nextChild) => {
+                  const nextItems = [...value.items];
+                  nextItems[childIdx] = nextChild;
+                  onChange({ ...value, items: nextItems });
+                }}
+              />
+            </div>
+          ))}
+
+          <button
+            className="text-xs bg-white border border-gray-200 hover:border-pink-300 hover:bg-pink-50 text-gray-700 px-3 py-2 rounded-lg transition-all shadow-sm font-medium"
+            style={{ marginLeft: indent }}
+            onClick={() => onChange({ ...value, items: [...value.items, defaultExpr()] })}
+          >
+            + Add condition
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isExists = value.op === "exists";
+
+  return (
+    <div className="space-y-2">
+      {header}
+      <div className="flex gap-2.5 items-end" style={{ paddingLeft: indent }}>
+        <div className="flex-1">
+          <div className="text-[10px] text-gray-500 mb-1.5 ml-1 font-semibold">Left operand</div>
+          <input
+            className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none font-mono text-gray-800 placeholder-gray-400 bg-white shadow-sm transition-all"
+            placeholder="{{vars.serviceKey}}"
+            value={value.left}
+            onChange={(e) => onChange({ ...value, left: e.target.value })}
+          />
+        </div>
+
+        <div className="pb-0.5">
+          <select
+            className="text-xs px-2 py-2.5 rounded-lg border-2 border-pink-300 bg-gradient-to-b from-white to-pink-50 font-bold text-pink-600 cursor-pointer hover:border-pink-400 focus:outline-none focus:ring-4 focus:ring-pink-100 min-w-[120px] shadow-sm transition-all"
+            value={value.op}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                op: e.target.value as LeafOp,
+                right: e.target.value === "exists" ? "" : value.right,
+              })
+            }
+          >
+            <option value="eq">= (equals)</option>
+            <option value="ne">!= (not equals)</option>
+            <option value="gt">&gt; (greater than)</option>
+            <option value="gte">&gt;= (greater or equal)</option>
+            <option value="lt">&lt; (less than)</option>
+            <option value="lte">&lt;= (less or equal)</option>
+            <option value="like">LIKE (wildcard)</option>
+            <option value="matches">MATCHES (regex)</option>
+            <option value="contains">CONTAINS</option>
+            <option value="exists">EXISTS (has value)</option>
+          </select>
+        </div>
+
+        <div className="flex-1">
+          <div className="text-[10px] text-gray-500 mb-1.5 ml-1 font-semibold">Right operand</div>
+          <input
+            className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none font-mono text-gray-800 placeholder-gray-400 bg-white shadow-sm transition-all disabled:bg-gray-50 disabled:text-gray-400"
+            placeholder='"" or null or {{vars.max}}'
+            value={value.right}
+            disabled={isExists}
+            onChange={(e) => onChange({ ...value, right: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{ paddingLeft: indent }}
+        className="flex items-center gap-3 text-[10px] text-gray-600 font-semibold"
+      >
+        <label className="flex items-center gap-2 select-none">
+          <input
+            type="checkbox"
+            checked={value.negate}
+            onChange={(e) => onChange({ ...value, negate: e.target.checked })}
+          />
+          NOT (negate)
+        </label>
+        <div className="ml-auto text-[10px] text-gray-500 font-mono">Use `null` to send JSON null</div>
+      </div>
+    </div>
+  );
+}
 
 export default function ConditionInspector({
   node,
   updateNodeData,
 }: ConditionInspectorProps) {
+  const isRecord = (v: unknown): v is Record<string, unknown> =>
+    typeof v === "object" && v !== null && !Array.isArray(v);
+
+  const toText = (value: unknown, fallback = "") => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  };
+
+  const operandToText = (value: unknown): string => {
+    if (value === null) return "null";
+    if (value === true) return "true";
+    if (value === false) return "false";
+    if (typeof value === "number") return String(value);
+    if (typeof value === "string") return value;
+    return toText(value, "");
+  };
+
+  const parseOperandText = (raw: string): Operand | string => {
+    const trimmed = raw.trim();
+    if (trimmed === "") return "";
+    if (trimmed === "null") return null;
+    if (trimmed === "true") return true;
+    if (trimmed === "false") return false;
+    // Avoid "helpfully" parsing template strings like {{vars.x}}
+    if (!trimmed.includes("{{") && /^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+    return raw;
+  };
+
+  const parseWhenToUi = (when: unknown): UiExpr => {
+    const fallback = defaultExpr();
+    if (!isRecord(when)) return fallback;
+
+    // { not: <expr> }
+    if ("not" in when) {
+      const inner = parseWhenToUi((when as any).not);
+      return { ...inner, negate: true };
+    }
+
+    const keys = Object.keys(when);
+    if (keys.length !== 1) return fallback;
+    const op = keys[0] as string;
+    const value = when[op];
+
+    if (op === "or" || op === "and") {
+      const arr = Array.isArray(value) ? value : [];
+      const items = arr.length ? arr.map((v) => parseWhenToUi(v)) : [defaultExpr()];
+      return { kind: "group", op, items, negate: false };
+    }
+
+    if (op === "exists") {
+      const arr = Array.isArray(value) ? value : [];
+      return {
+        kind: "cond",
+        op: "exists",
+        left: operandToText(arr[0] ?? ""),
+        right: "",
+        negate: false,
+      };
+    }
+
+    const arr = Array.isArray(value) ? value : [];
+    const leafOp = (op === "neq" ? "ne" : op) as LeafOp;
+    return {
+      kind: "cond",
+      op: leafOp,
+      left: operandToText(arr[0] ?? ""),
+      right: operandToText(arr[1] ?? ""),
+      negate: false,
+    };
+  };
+
+  const serializeUiToWhen = (expr: UiExpr): Record<string, unknown> => {
+    const base = (() => {
+      if (expr.kind === "group") {
+        return { [expr.op]: expr.items.map((it) => serializeUiToWhen(it)) };
+      }
+
+      const left = parseOperandText(expr.left);
+      if (expr.op === "exists") return { exists: [left] };
+      const right = parseOperandText(expr.right);
+      return { [expr.op]: [left, right] };
+    })();
+
+    return expr.negate ? { not: base } : base;
+  };
   
   // Helpers to manage routes
   const routes = (node.data.nextNode?.routes as ConditionRoute[]) || [];
@@ -44,32 +349,10 @@ export default function ConditionInspector({
       });
   };
 
-  const updateRouteLogic = (idx: number, field: string, value: any) => {
-      const newRoutes = [...routes];
-      const currentWhen = newRoutes[idx].when || {};
-      const currentOp = Object.keys(currentWhen)[0] || "eq";
-      const currentArgs = currentWhen[currentOp] || ["", ""];
-
-      
-      if (field === "operator") {
-          // Change operator key but keep values
-          newRoutes[idx] = {
-              ...newRoutes[idx],
-              when: { [value]: currentArgs }
-          };
-      } else if (field === "left") {
-          newRoutes[idx] = {
-              ...newRoutes[idx],
-             when: { [currentOp]: [value, currentArgs[1]] }
-          };
-      } else if (field === "right") {
-           newRoutes[idx] = {
-              ...newRoutes[idx],
-             when: { [currentOp]: [currentArgs[0], value] }
-          };
-      }
-
-      updateRoutes(newRoutes);
+  const updateRouteWhen = (idx: number, nextExpr: UiExpr) => {
+    const newRoutes = [...routes];
+    newRoutes[idx] = { ...newRoutes[idx], when: serializeUiToWhen(nextExpr) };
+    updateRoutes(newRoutes);
   };
 
   const updateDefault = (val: string) => {
@@ -123,10 +406,8 @@ export default function ConditionInspector({
 
             <div className="space-y-3">
                 {routes.map((route, idx) => {
-                     const operator = route.when ? Object.keys(route.when)[0] : "eq";
-                     const args = route.when ? route.when[operator] : ["", ""];
-                     const leftValue = args?.[0] || "";
-                     const rightValue = args?.[1] || "";
+                     const expr = parseWhenToUi(route.when);
+                     const setExpr = (next: UiExpr) => updateRouteWhen(idx, next);
 
                     return (
                         <div key={idx} className="p-4 bg-gradient-to-br from-white to-gray-50/50 border-2 border-gray-200 rounded-xl relative group transition-all hover:border-pink-300 hover:shadow-lg">
@@ -146,51 +427,7 @@ export default function ConditionInspector({
                                   </svg>
                                   Condition Logic
                                 </label>
-                                <div className="flex gap-2.5 items-end">
-                                    {/* Left Side */}
-                                    <div className="flex-1">
-                                        <div className="text-[10px] text-gray-500 mb-1.5 ml-1 font-semibold">Left operand</div>
-                                        <input 
-                                            className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none font-mono text-gray-800 placeholder-gray-400 bg-white shadow-sm transition-all"
-                                            placeholder="{{vars.amount}}"
-                                            value={leftValue}
-                                            onChange={(e) => updateRouteLogic(idx, "left", e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Operator */}
-                                    <div className="pb-0.5">
-                                         <select
-                                            className="text-xs px-2 py-2.5 rounded-lg border-2 border-pink-300 bg-gradient-to-b from-white to-pink-50 font-bold text-pink-600 cursor-pointer hover:border-pink-400 focus:outline-none focus:ring-4 focus:ring-pink-100 min-w-[100px] shadow-sm transition-all"
-                                            value={operator}
-                                            onChange={(e) => updateRouteLogic(idx, "operator", e.target.value)}
-                                         >
-                                             <option value="eq">= (equals)</option>
-                                             <option value="ne">!= (not equals)</option>
-                                             <option value="gt">&gt; (greater than)</option>
-                                             <option value="gte">&gt;= (greater or equal)</option>
-                                             <option value="lt">&lt; (less than)</option>
-                                             <option value="lte">&lt;= (less or equal)</option>
-                                             <option value="and">AND (all true)</option>
-                                             <option value="or">OR (any true)</option>
-                                             <option value="not">NOT (negate)</option>
-                                             <option value="matches">MATCHES (regex)</option>
-                                             <option value="like">LIKE (wildcard)</option>
-                                             <option value="exists">EXISTS (has value)</option>
-                                         </select>
-                                    </div>
-
-                                    {/* Right Side */}
-                                    <div className="flex-1">
-                                        <div className="text-[10px] text-gray-500 mb-1.5 ml-1 font-semibold">Right operand</div>
-                                        <input 
-                                            className="w-full text-sm p-2.5 rounded-lg border-2 border-gray-200 focus:border-pink-400 focus:ring-4 focus:ring-pink-100 outline-none font-mono text-gray-800 placeholder-gray-400 bg-white shadow-sm transition-all"
-                                            placeholder="1000 or {{vars.max}}"
-                                            value={rightValue}
-                                            onChange={(e) => updateRouteLogic(idx, "right", e.target.value)}
-                                        />
-                                    </div>
-                                </div>
+                                <ConditionExprEditor value={expr} onChange={setExpr} depth={0} />
                             </div>
 
                             {/* Target Display */}
