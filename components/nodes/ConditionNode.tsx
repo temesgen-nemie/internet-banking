@@ -23,6 +23,17 @@ export default function ConditionNode({ id, data, selected }: ConditionNodeProps
   const edges = useFlowStore((s) => s.edges);
   const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
 
+  const toText = (value: unknown, fallback = "") => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "string" || typeof value === "number") return String(value);
+    if (Array.isArray(value)) return value.map((v) => String(v)).join(", ");
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  };
+
   return (
     <div
       className={`group rounded-xl p-0 w-64 bg-white shadow-xl border-2 transition-all duration-200 overflow-hidden
@@ -64,7 +75,8 @@ export default function ConditionNode({ id, data, selected }: ConditionNodeProps
               };
 
               const displayOp = opMap[operator] || operator;
-              const displayVar = String(variable).replace(/{{vars\.(.*?)}}/, "$1");
+              const displayVar = toText(variable, "?").replace(/{{vars\.(.*?)}}/, "$1");
+              const displayVal = toText(val, "?");
 
               const handleId = `route-${idx}`;
               const isActuallyConnected = edges.some(e => e.source === id && e.sourceHandle === handleId);
@@ -82,7 +94,7 @@ export default function ConditionNode({ id, data, selected }: ConditionNodeProps
                      <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
                         <span className="truncate max-w-[60px]" title={String(variable)}>{displayVar || "?"}</span>
                         <span className="font-bold text-pink-500">{displayOp}</span>
-                        <span className="truncate max-w-[40px] font-bold text-gray-700">{val}</span>
+                        <span className="truncate max-w-[40px] font-bold text-gray-700">{displayVal}</span>
                      </div>
                     <span
                       className={`font-semibold truncate max-w-[120px] ${

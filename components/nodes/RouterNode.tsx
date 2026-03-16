@@ -30,6 +30,17 @@ export default function RouterNode({ id, data, selected }: RouterNodeProps) {
   const nodes = useFlowStore((s) => s.nodes);
   const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
 
+  const toText = (value: unknown, fallback = "") => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "string" || typeof value === "number") return String(value);
+    if (Array.isArray(value)) return value.map((v) => String(v)).join(", ");
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  };
+
   const routes = data.nextNode?.routes || [];
 
   return (
@@ -85,7 +96,7 @@ export default function RouterNode({ id, data, selected }: RouterNodeProps) {
             label = resolved.name || route.goto;
           }
 
-          const input = route.when?.eq?.[1] || "";
+          const input = toText(route.when?.eq?.[1], "");
 
           return (
             <div
