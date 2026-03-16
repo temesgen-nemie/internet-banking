@@ -358,7 +358,6 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
           </div>
         </div>
 
-        {/* Menu Mode: Logic Routing Rules */}
         {isMenuMode && (
           <div>
             <div className="flex items-center justify-between mb-2">
