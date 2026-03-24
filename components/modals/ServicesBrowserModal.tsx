@@ -356,14 +356,9 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       Framework
                     </label>
                     <input
-                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900"
+                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-gray-50 px-3 py-2 text-gray-700 cursor-not-allowed"
                       value={createForm.framework}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          framework: e.target.value as CreateServicePayload["framework"],
-                        }))
-                      }
+                      readOnly
                     />
                   </div>
                   <div>
@@ -371,14 +366,9 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       Bundler
                     </label>
                     <input
-                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900"
+                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-gray-50 px-3 py-2 text-gray-700 cursor-not-allowed"
                       value={createForm.bundler}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          bundler: e.target.value as CreateServicePayload["bundler"],
-                        }))
-                      }
+                      readOnly
                     />
                   </div>
                   <div>
@@ -386,14 +376,9 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       Unit Test Runner
                     </label>
                     <input
-                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900"
+                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-gray-50 px-3 py-2 text-gray-700 cursor-not-allowed"
                       value={createForm.unitTestRunner}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          unitTestRunner: e.target.value as CreateServicePayload["unitTestRunner"],
-                        }))
-                      }
+                      readOnly
                     />
                   </div>
                   <div>
@@ -401,14 +386,9 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       E2E Test Runner
                     </label>
                     <input
-                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900"
+                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-gray-50 px-3 py-2 text-gray-700 cursor-not-allowed"
                       value={createForm.e2eTestRunner}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          e2eTestRunner: e.target.value as CreateServicePayload["e2eTestRunner"],
-                        }))
-                      }
+                      readOnly
                     />
                   </div>
                   <div>
@@ -416,14 +396,9 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       Linter
                     </label>
                     <input
-                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900"
+                      className="w-full text-sm border-2 border-gray-200 rounded-lg bg-gray-50 px-3 py-2 text-gray-700 cursor-not-allowed"
                       value={createForm.linter}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          linter: e.target.value as CreateServicePayload["linter"],
-                        }))
-                      }
+                      readOnly
                     />
                   </div>
                   <div className="flex items-center gap-2 mt-6">
@@ -431,9 +406,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       id="dryRun"
                       type="checkbox"
                       checked={createForm.dryRun}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({ ...prev, dryRun: e.target.checked }))
-                      }
+                      disabled
                     />
                     <label htmlFor="dryRun" className="text-xs text-gray-600">
                       Dry Run
