@@ -376,6 +376,8 @@ export const createStructureActions = ({
         nextData.format = flowNode.format ?? nextData.format;
         nextData.headers = flowNode.headers ?? nextData.headers;
         nextData.apiBody = flowNode.apiBody ?? nextData.apiBody;
+        nextData.apiBodyRaw = flowNode.apiBodyRaw ?? nextData.apiBodyRaw;
+        nextData.bodyMode = flowNode.bodyMode ?? nextData.bodyMode;
         nextData.responseMapping = flowNode.responseMapping ?? nextData.responseMapping;
         nextData.persistResponseMapping =
           typeof flowNode.persistResponseMapping === "boolean"

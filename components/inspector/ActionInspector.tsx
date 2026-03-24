@@ -14,10 +14,16 @@ import ParamsEditor from "./action/ParamsEditor";
 import { ActionNode, ActionRoute } from "./action/types";
 import { useActionRequestStore, type StoredResponse } from "@/store/actionRequestStore";
 import { useFlowStore } from "@/store/flow/flowStore";
-import { fetchFlowSettings, type FlowSettingsResponse } from "@/lib/api";
+import {
+  callCurlProxy,
+  fetchFlowSettings,
+  type FlowSettingsResponse,
+} from "@/lib/api";
 
 type SourceMode = "api" | "local" | "ws";
 type WsConnectionState = "disconnected" | "connecting" | "connected" | "error";
+type ApiBodyMode = "json" | "soap" | "form";
+type FormFieldRow = { id: string; key: string; value: string; description: string };
 
 type ActionInspectorProps = {
   node: ActionNode;
@@ -26,13 +32,49 @@ type ActionInspectorProps = {
 
 export default function ActionInspector({ node, updateNodeData }: ActionInspectorProps) {
   const { nodes } = useFlowStore();
-  const bodyMode = (node.data.bodyMode as "json" | "soap") ?? "json";
+
+  const generateId = React.useCallback(() => Math.random().toString(36).slice(2, 11), []);
+
+  const parseFormEncodedBody = React.useCallback(
+    (raw: string): FormFieldRow[] => {
+      const text = raw.trim();
+      if (!text) return [];
+      const params = new URLSearchParams(text);
+      const rows: FormFieldRow[] = [];
+      params.forEach((value, key) => {
+        rows.push({ id: generateId(), key, value, description: "" });
+      });
+      return rows;
+    },
+    [generateId]
+  );
+
+  const serializeFormEncodedBody = React.useCallback((rows: FormFieldRow[]) => {
+    const params = new URLSearchParams();
+    rows.forEach((row) => {
+      const key = row.key.trim();
+      if (!key) return;
+      params.append(key, row.value);
+    });
+    return params.toString();
+  }, []);
+
+  const ensureFormRows = React.useCallback(
+    (rows: FormFieldRow[]) =>
+      rows.length > 0 ? rows : [{ id: generateId(), key: "", value: "", description: "" }],
+    [generateId]
+  );
+
+  const bodyMode = (node.data.bodyMode as ApiBodyMode) ?? "json";
   const [apiBodyText, setApiBodyText] = React.useState<string>(() => {
-    if (bodyMode === "soap") {
+    if (bodyMode === "soap" || bodyMode === "form") {
       return String(node.data.apiBodyRaw ?? "");
     }
     return JSON.stringify(node.data.apiBody ?? {}, null, 2);
   });
+  const [formFields, setFormFields] = React.useState<FormFieldRow[]>(() =>
+    ensureFormRows(parseFormEncodedBody(String(node.data.apiBodyRaw ?? "")))
+  );
   const [headerPairs, setHeaderPairs] = React.useState<
     Array<{ id: string; key: string; value: string }>
   >(() => {
@@ -201,9 +243,6 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     } catch {}
     return [];
   });
-
-  const generateId = () => Math.random().toString(36).substr(2, 9);
-
   const localFieldPairs = React.useMemo(() => {
     const fieldsRaw = Array.isArray(node.data.fields)
       ? node.data.fields.map((value) => String(value ?? ""))
@@ -308,13 +347,38 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
 
   React.useEffect(() => {
     if (bodyMode === "soap") {
-      setApiBodyText(String(node.data.apiBodyRaw ?? ""));
+      const rawBody = String(node.data.apiBodyRaw ?? "");
+      if (rawBody !== apiBodyText) {
+        setApiBodyText(rawBody);
+      }
       setApiBodyError(null);
       return;
     }
-    setApiBodyText(JSON.stringify(node.data.apiBody ?? {}, null, 2));
+
+    if (bodyMode === "form") {
+      const rawBody = String(node.data.apiBodyRaw ?? "");
+      if (rawBody !== apiBodyText) {
+        setApiBodyText(rawBody);
+        setFormFields(ensureFormRows(parseFormEncodedBody(rawBody)));
+      }
+      setApiBodyError(null);
+      return;
+    }
+
+    const nextJsonBody = JSON.stringify(node.data.apiBody ?? {}, null, 2);
+    if (nextJsonBody !== apiBodyText) {
+      setApiBodyText(nextJsonBody);
+    }
     setApiBodyError(null);
-  }, [bodyMode, node.data.apiBody, node.data.apiBodyRaw, node.id]);
+  }, [
+    apiBodyText,
+    bodyMode,
+    ensureFormRows,
+    node.data.apiBody,
+    node.data.apiBodyRaw,
+    node.id,
+    parseFormEncodedBody,
+  ]);
 
   const availablePersistedFields = React.useMemo(() => {
     // Helper to find the outermost parent group ID
@@ -485,6 +549,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     let url = "";
     const headers: Record<string, string> = {};
     let body = "";
+    const urlEncodedEntries: Array<{ key: string; value: string }> = [];
 
     for (let i = 0; i < tokens.length; i += 1) {
       const token = tokens[i];
@@ -521,9 +586,32 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
         continue;
       }
 
+      if (token === "--data-urlencode") {
+        const entry = tokens[i + 1] || "";
+        i += 1;
+
+        const separatorIndex = entry.indexOf("=");
+        if (separatorIndex !== -1) {
+          const key = entry.slice(0, separatorIndex);
+          const value = entry.slice(separatorIndex + 1);
+          urlEncodedEntries.push({ key, value });
+        } else if (entry) {
+          urlEncodedEntries.push({ key: entry, value: "" });
+        }
+        continue;
+      }
+
       if (!token.startsWith("-") && !url) {
         url = token;
       }
+    }
+
+    if (urlEncodedEntries.length > 0) {
+      const params = new URLSearchParams();
+      urlEncodedEntries.forEach(({ key, value }) => {
+        params.append(key, value);
+      });
+      body = params.toString();
     }
 
     if (!method) {
@@ -966,11 +1054,27 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                 if (parsed.body) {
                   const trimmed = parsed.body.trim();
                   const looksXml = trimmed.startsWith("<");
+                  const contentTypeHeader = Object.entries(parsed.headers).find(
+                    ([key]) => key.toLowerCase() === "content-type"
+                  )?.[1];
+                  const isFormUrlEncoded =
+                    typeof contentTypeHeader === "string" &&
+                    contentTypeHeader.toLowerCase().includes("application/x-www-form-urlencoded");
+
                   if (looksXml) {
                     updateNodeData(node.id, {
                       bodyMode: "soap",
                       apiBodyRaw: parsed.body,
                     });
+                    setApiBodyText(parsed.body);
+                    setApiBodyError(null);
+                  } else if (isFormUrlEncoded) {
+                    const nextFormFields = ensureFormRows(parseFormEncodedBody(parsed.body));
+                    updateNodeData(node.id, {
+                      bodyMode: "form",
+                      apiBodyRaw: parsed.body,
+                    });
+                    setFormFields(nextFormFields);
                     setApiBodyText(parsed.body);
                     setApiBodyError(null);
                   } else {
@@ -1019,25 +1123,54 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                 }
 
                 try {
-                  const response = await fetch(endpoint, {
+                  const proxyResponse = (await callCurlProxy({
+                    url: endpoint,
                     method,
                     headers,
                     body,
-                  });
+                  })) as Record<string, unknown>;
+
+                  const proxyStatus =
+                    typeof proxyResponse.status === "number"
+                      ? proxyResponse.status
+                      : typeof proxyResponse.statusCode === "number"
+                        ? proxyResponse.statusCode
+                        : null;
+                  const proxyStatusText =
+                    typeof proxyResponse.statusText === "string"
+                      ? proxyResponse.statusText
+                      : typeof proxyResponse.message === "string"
+                        ? proxyResponse.message
+                        : "";
+                  const proxyHeadersSource =
+                    proxyResponse.headers && typeof proxyResponse.headers === "object"
+                      ? (proxyResponse.headers as Record<string, unknown>)
+                      : proxyResponse.responseHeaders &&
+                          typeof proxyResponse.responseHeaders === "object"
+                        ? (proxyResponse.responseHeaders as Record<string, unknown>)
+                        : {};
+                  const normalizedHeaders = Object.fromEntries(
+                    Object.entries(proxyHeadersSource).map(([key, value]) => [key, String(value)])
+                  );
+
+                  let responseBody = "";
+                  const bodyCandidate =
+                    proxyResponse.body ??
+                    proxyResponse.responseBody ??
+                    proxyResponse.data ??
+                    proxyResponse.result;
+                  if (typeof bodyCandidate === "string") {
+                    responseBody = bodyCandidate;
+                  } else if (bodyCandidate !== undefined) {
+                    responseBody = JSON.stringify(bodyCandidate, null, 2);
+                  }
 
                   updateResponse(node.id, {
-                    status: response.status,
-                    statusText: response.statusText,
+                    status: proxyStatus,
+                    statusText: proxyStatusText,
+                    headers: normalizedHeaders,
+                    body: responseBody,
                   });
-
-                  const headerRecord: Record<string, string> = {};
-                  response.headers.forEach((value, key) => {
-                    headerRecord[key] = value;
-                  });
-                  updateResponse(node.id, { headers: headerRecord });
-
-                  const text = await response.text();
-                  updateResponse(node.id, { body: text });
                 } catch (err) {
                   updateResponse(node.id, {
                     error: err instanceof Error ? err.message : "Request failed.",
@@ -1151,6 +1284,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                   apiBodyText={apiBodyText}
                   apiBodyError={apiBodyError}
                   bodyMode={bodyMode}
+                  formFields={formFields}
                   onBodyModeChange={(value) => {
                     updateNodeData(node.id, { bodyMode: value });
                     if (value === "soap") {
@@ -1158,8 +1292,43 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                       setApiBodyError(null);
                       return;
                     }
+                    if (value === "form") {
+                      let nextFormFields = ensureFormRows(parseFormEncodedBody(apiBodyText));
+                      if (bodyMode === "json") {
+                        try {
+                          const parsed = JSON.parse(apiBodyText || "{}") as Record<string, unknown>;
+                          nextFormFields = ensureFormRows(
+                            Object.entries(parsed).map(([key, fieldValue]) => ({
+                              id: generateId(),
+                              key,
+                              value:
+                                typeof fieldValue === "string"
+                                  ? fieldValue
+                                  : JSON.stringify(fieldValue),
+                              description: "",
+                            }))
+                          );
+                        } catch {}
+                      }
+                      const encodedBody = serializeFormEncodedBody(nextFormFields);
+                      setFormFields(nextFormFields);
+                      setApiBodyText(encodedBody);
+                      updateNodeData(node.id, { apiBodyRaw: encodedBody });
+                      setApiBodyError(null);
+                      return;
+                    }
                     try {
-                      const parsed = JSON.parse(apiBodyText || "{}");
+                      let parsed: Record<string, unknown>;
+                      if (bodyMode === "form") {
+                        parsed = Object.fromEntries(
+                          formFields
+                            .filter((item) => item.key.trim())
+                            .map((item) => [item.key.trim(), item.value])
+                        );
+                        setApiBodyText(JSON.stringify(parsed, null, 2));
+                      } else {
+                        parsed = JSON.parse(apiBodyText || "{}");
+                      }
                       setApiBodyError(null);
                       updateNodeData(node.id, { apiBody: parsed });
                     } catch (err) {
@@ -1168,7 +1337,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                   }}
                   onApiBodyChange={(value) => {
                     setApiBodyText(value);
-                    if (bodyMode === "soap") {
+                    if (bodyMode === "soap" || bodyMode === "form") {
                       updateNodeData(node.id, { apiBodyRaw: value });
                       setApiBodyError(null);
                       return;
@@ -1180,6 +1349,33 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     } catch (err) {
                       setApiBodyError(err instanceof Error ? err.message : "Invalid JSON");
                     }
+                  }}
+                  onAddFormField={() => {
+                    const next = [
+                      ...formFields,
+                      { id: generateId(), key: "", value: "", description: "" },
+                    ];
+                    setFormFields(next);
+                    const encodedBody = serializeFormEncodedBody(next);
+                    setApiBodyText(encodedBody);
+                    updateNodeData(node.id, { apiBodyRaw: encodedBody });
+                  }}
+                  onRemoveFormField={(id) => {
+                    const next = formFields.filter((field) => field.id !== id);
+                    const normalized = ensureFormRows(next);
+                    setFormFields(normalized);
+                    const encodedBody = serializeFormEncodedBody(normalized);
+                    setApiBodyText(encodedBody);
+                    updateNodeData(node.id, { apiBodyRaw: encodedBody });
+                  }}
+                  onUpdateFormField={(id, field, value) => {
+                    const next = formFields.map((item) =>
+                      item.id === id ? { ...item, [field]: value } : item
+                    );
+                    setFormFields(next);
+                    const encodedBody = serializeFormEncodedBody(next);
+                    setApiBodyText(encodedBody);
+                    updateNodeData(node.id, { apiBodyRaw: encodedBody });
                   }}
                 />
               )}

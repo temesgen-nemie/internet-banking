@@ -41,6 +41,33 @@ export type MeResponse = {
   user: AuthUser;
 };
 
+export type CurlProxyPayload = {
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body?: string;
+};
+
+export const callCurlProxy = async (payload: CurlProxyPayload) => {
+  try {
+    const response = await api.post("/admin/flows/curlProxyController", payload);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+      throw new Error(
+        axiosError.response?.data?.error ||
+          axiosError.response?.data?.message ||
+          "Failed to send request through proxy"
+      );
+    } else if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error("An unknown error occurred");
+    }
+  }
+};
+
 export const createFlow = async (payload: FlowJson) => {
   try {
     const response = await api.post("/flows", payload);

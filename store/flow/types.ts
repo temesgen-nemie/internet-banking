@@ -53,6 +53,8 @@ export type FlowNode = {
   format?: "indexedList" | "singleValue";
   headers?: Record<string, unknown>;
   apiBody?: Record<string, unknown>;
+  apiBodyRaw?: string;
+  bodyMode?: "json" | "soap" | "form";
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
   encryptInput?: boolean;
