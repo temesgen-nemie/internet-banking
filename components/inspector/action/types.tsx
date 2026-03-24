@@ -24,7 +24,7 @@ export type ActionNodeData = {
   format?: "indexedList" | "singleValue";
   apiBody?: Record<string, unknown>;
   apiBodyRaw?: string;
-  bodyMode?: "json" | "soap";
+  bodyMode?: "json" | "soap" | "form";
   requestSource?: "api" | "local" | "ws";
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;

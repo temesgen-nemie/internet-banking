@@ -391,6 +391,11 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           format: hasLocalSource ? formatValue || "indexedList" : formatValue,
           headers: (data.headers as Record<string, unknown>) || undefined,
           apiBody: (data.apiBody as Record<string, unknown>) || undefined,
+          apiBodyRaw: String(data.apiBodyRaw ?? "") || undefined,
+          bodyMode:
+            data.bodyMode === "json" || data.bodyMode === "soap" || data.bodyMode === "form"
+              ? data.bodyMode
+              : undefined,
           responseMapping: data.responseMapping
             ? Object.fromEntries(
                 Object.entries(data.responseMapping as Record<string, string>).map(([k, v]) => {

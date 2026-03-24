@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "USSD Menu Builder",
+  title: "Internet Banking",
   description:
     "Design, simulate, and manage USSD flows with visual editing, auditing, and permissions.",
   applicationName: "USSD Menu Builder",
