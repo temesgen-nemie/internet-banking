@@ -9,6 +9,13 @@ import type { FlowJson, FlowNode } from "@/store/flow/types";
 type StoreSet = (...args: any[]) => unknown;
 type StoreGet = () => Record<string, any>;
 
+const getVisualStateArrays = (flow?: FlowJson) => {
+  const visualState = flow?.visualState;
+  const nodes = Array.isArray(visualState?.nodes) ? visualState.nodes : [];
+  const edges = Array.isArray(visualState?.edges) ? visualState.edges : [];
+  return { nodes, edges };
+};
+
 export const createRemoteFlowActions = ({
   set,
   get,
@@ -89,7 +96,9 @@ export const createRemoteFlowActions = ({
       return;
     }
 
-    if (!parsed.visualState) {
+    const parsedVisualState = getVisualStateArrays(parsed);
+
+    if (parsedVisualState.nodes.length === 0 && parsedVisualState.edges.length === 0) {
       toast.error("JSON lacks visual layout data for import.");
       return;
     }
@@ -97,10 +106,10 @@ export const createRemoteFlowActions = ({
     const { nodes: currentNodes, edges: currentEdges, currentSubflowId } = get();
     const idMap = new Map<string, string>();
 
-    parsed.visualState.nodes.forEach((n) => idMap.set(n.id, uuidv4()));
+    parsedVisualState.nodes.forEach((n) => idMap.set(n.id, uuidv4()));
 
-    const incomingIds = new Set(parsed.visualState.nodes.map((n) => n.id));
-    const roots = parsed.visualState.nodes.filter(
+    const incomingIds = new Set(parsedVisualState.nodes.map((n) => n.id));
+    const roots = parsedVisualState.nodes.filter(
       (n) => !n.parentNode || !incomingIds.has(n.parentNode)
     );
 
@@ -113,7 +122,7 @@ export const createRemoteFlowActions = ({
       offsetY = position.y - avgY;
     }
 
-    const newNodes: Node[] = parsed.visualState.nodes.map((n) => {
+    const newNodes: Node[] = parsedVisualState.nodes.map((n) => {
       const isRoot = !n.parentNode || !incomingIds.has(n.parentNode);
       const newId = idMap.get(n.id)!;
       let parentNode = n.parentNode ? idMap.get(n.parentNode) : undefined;
@@ -154,7 +163,7 @@ export const createRemoteFlowActions = ({
       } as Node;
     });
 
-    const newEdges: Edge[] = parsed.visualState.edges
+    const newEdges: Edge[] = parsedVisualState.edges
       .filter((e) => idMap.has(e.source) && idMap.has(e.target))
       .map((e) => ({
         ...e,
@@ -183,10 +192,9 @@ export const createRemoteFlowActions = ({
       const allLogicalDataMap = new Map<string, FlowNode>();
 
       flows.forEach((f: FlowJson) => {
-        if (f.visualState) {
-          backendNodes = [...backendNodes, ...f.visualState.nodes];
-          backendEdges = [...backendEdges, ...f.visualState.edges];
-        }
+        const { nodes, edges } = getVisualStateArrays(f);
+        backendNodes = [...backendNodes, ...nodes];
+        backendEdges = [...backendEdges, ...edges];
         f.nodes.forEach((fn) => allLogicalDataMap.set(fn.id, fn));
       });
 
@@ -272,8 +280,8 @@ export const createRemoteFlowActions = ({
 
       const publishedGroupIdsFromBackend = flows
         .map((f: FlowJson) => {
-          if (!f.visualState) return null;
-          const startNode = f.visualState.nodes.find((n) => n.type === "start");
+          const { nodes } = getVisualStateArrays(f);
+          const startNode = nodes.find((n) => n.type === "start");
           return startNode?.parentNode;
         })
         .filter((id): id is string => !!id);
@@ -299,7 +307,7 @@ export const createRemoteFlowActions = ({
 
           if (flowName && allBackendFlowNames.includes(flowName)) {
             const backendFlow = flows.find((f: FlowJson) => f.flowName === flowName);
-            const backendNodeIds = new Set(backendFlow?.visualState?.nodes.map((n) => n.id) || []);
+            const backendNodeIds = new Set(getVisualStateArrays(backendFlow).nodes.map((n) => n.id));
             const hasLocalOnly = groupChildren.some((n) => !backendNodeIds.has(n.id));
             return hasLocalOnly;
           }
@@ -324,8 +332,9 @@ export const createRemoteFlowActions = ({
       const { getFlowByName } = await import("@/lib/api");
       const flowData = await getFlowByName(flowName);
       const flow = Array.isArray(flowData) ? flowData[0] : flowData;
+      const visualState = getVisualStateArrays(flow);
 
-      if (!flow || !flow.visualState) {
+      if (!flow || visualState.nodes.length === 0) {
         toast.error(`Flow '${flowName}' not found or missing visual state.`);
         return;
       }
@@ -340,8 +349,8 @@ export const createRemoteFlowActions = ({
 
       const otherNodes = nodes.filter((n: Node) => n.parentNode !== groupId);
 
-      const backendGroupNode = flow.visualState.nodes.find((bn: Node) => bn.id === groupId);
-      const nextFlowNodes = flow.visualState.nodes
+      const backendGroupNode = visualState.nodes.find((bn: Node) => bn.id === groupId);
+      const nextFlowNodes = visualState.nodes
         .filter((bn: Node) => bn.id !== groupId)
         .map((bn: Node) => {
           const freshLogicalData = logicalDataMap.get(bn.id);
@@ -371,7 +380,7 @@ export const createRemoteFlowActions = ({
       );
 
       const nextNodes = [...finalOtherNodes, ...nextFlowNodes];
-      const nextEdges = [...otherEdges, ...flow.visualState.edges];
+      const nextEdges = [...otherEdges, ...visualState.edges];
 
       let nextPublishedGroupIds = publishedGroupIds;
       if (groupId && !publishedGroupIds.includes(groupId)) {
