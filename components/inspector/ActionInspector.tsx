@@ -336,6 +336,13 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     if (!body) return [];
     try {
       const parsed = JSON.parse(body);
+      if (typeof parsed === "string") {
+        const xmlText = parsed.trim();
+        if (xmlText.startsWith("<")) {
+          return buildXmlResponseOptions(xmlText);
+        }
+        return [];
+      }
       return buildResponseOptions(parsed);
     } catch {
       if (body.startsWith("<")) {
@@ -1130,24 +1137,48 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     body,
                   })) as Record<string, unknown>;
 
+                  const responseCandidates = [
+                    proxyResponse,
+                    proxyResponse.data,
+                    proxyResponse.response,
+                    proxyResponse.payload,
+                    proxyResponse.result,
+                  ].filter(
+                    (candidate): candidate is Record<string, unknown> =>
+                      Boolean(candidate) && typeof candidate === "object" && !Array.isArray(candidate)
+                  );
+
+                  const resolvedResponse =
+                    responseCandidates.find(
+                      (candidate) =>
+                        typeof candidate.status === "number" ||
+                        typeof candidate.statusCode === "number" ||
+                        candidate.body !== undefined ||
+                        candidate.responseBody !== undefined ||
+                        candidate.headers !== undefined ||
+                        candidate.responseHeaders !== undefined
+                    ) ?? proxyResponse;
+
                   const proxyStatus =
-                    typeof proxyResponse.status === "number"
-                      ? proxyResponse.status
-                      : typeof proxyResponse.statusCode === "number"
-                        ? proxyResponse.statusCode
+                    typeof resolvedResponse.status === "number"
+                      ? resolvedResponse.status
+                      : typeof resolvedResponse.statusCode === "number"
+                        ? resolvedResponse.statusCode
                         : null;
                   const proxyStatusText =
-                    typeof proxyResponse.statusText === "string"
-                      ? proxyResponse.statusText
-                      : typeof proxyResponse.message === "string"
-                        ? proxyResponse.message
-                        : "";
+                    typeof resolvedResponse.statusText === "string"
+                      ? resolvedResponse.statusText
+                      : typeof resolvedResponse.message === "string"
+                        ? resolvedResponse.message
+                        : typeof proxyResponse.message === "string"
+                          ? proxyResponse.message
+                          : "";
                   const proxyHeadersSource =
-                    proxyResponse.headers && typeof proxyResponse.headers === "object"
-                      ? (proxyResponse.headers as Record<string, unknown>)
-                      : proxyResponse.responseHeaders &&
-                          typeof proxyResponse.responseHeaders === "object"
-                        ? (proxyResponse.responseHeaders as Record<string, unknown>)
+                    resolvedResponse.headers && typeof resolvedResponse.headers === "object"
+                      ? (resolvedResponse.headers as Record<string, unknown>)
+                      : resolvedResponse.responseHeaders &&
+                          typeof resolvedResponse.responseHeaders === "object"
+                        ? (resolvedResponse.responseHeaders as Record<string, unknown>)
                         : {};
                   const normalizedHeaders = Object.fromEntries(
                     Object.entries(proxyHeadersSource).map(([key, value]) => [key, String(value)])
@@ -1155,14 +1186,22 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
 
                   let responseBody = "";
                   const bodyCandidate =
-                    proxyResponse.body ??
-                    proxyResponse.responseBody ??
-                    proxyResponse.data ??
-                    proxyResponse.result;
+                    resolvedResponse.body ??
+                    resolvedResponse.responseBody ??
+                    (typeof resolvedResponse.data === "string" ||
+                    Array.isArray(resolvedResponse.data) ||
+                    (resolvedResponse.data &&
+                      typeof resolvedResponse.data === "object" &&
+                      !("status" in (resolvedResponse.data as Record<string, unknown>)) &&
+                      !("body" in (resolvedResponse.data as Record<string, unknown>)))
+                      ? resolvedResponse.data
+                      : undefined);
                   if (typeof bodyCandidate === "string") {
                     responseBody = bodyCandidate;
                   } else if (bodyCandidate !== undefined) {
                     responseBody = JSON.stringify(bodyCandidate, null, 2);
+                  } else if (Object.keys(proxyResponse).length > 0) {
+                    responseBody = JSON.stringify(proxyResponse, null, 2);
                   }
 
                   updateResponse(node.id, {
