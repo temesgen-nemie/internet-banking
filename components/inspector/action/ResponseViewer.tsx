@@ -60,7 +60,7 @@ export default function ResponseViewer({
                 <div className="text-[10px] font-semibold text-gray-500 uppercase mb-1">
                   Body
                 </div>
-                <pre className="text-xs text-gray-700 whitespace-pre-wrap break-words max-w-full overflow-x-auto bg-white p-2 rounded border border-gray-100">
+                <pre className="max-h-72 overflow-y-auto overflow-x-auto rounded border border-gray-100 bg-white p-2 text-xs text-gray-700 whitespace-pre-wrap break-words">
                   {(() => {
                     try {
                       const parsed = JSON.parse(body);

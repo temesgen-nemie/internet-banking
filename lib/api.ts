@@ -3,6 +3,10 @@ import type { FlowJson, FlowNode } from "../store/flow/types";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "https://ussdtool.profilesage.com";
+const AUTH_TOKEN_KEY = "ussd-auth-token";
+const AUTH_STORE_KEY = "ussd-auth";
+
+let isHandlingUnauthorized = false;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,7 +18,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = window.localStorage.getItem("ussd-auth-token");
+    const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
     if (token) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
@@ -22,6 +26,35 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      typeof window !== "undefined" &&
+      axios.isAxiosError(error) &&
+      error.response?.status === 401
+    ) {
+      const hasSession =
+        Boolean(window.localStorage.getItem(AUTH_TOKEN_KEY)) ||
+        Boolean(window.localStorage.getItem(AUTH_STORE_KEY));
+
+      if (hasSession) {
+        window.localStorage.removeItem(AUTH_TOKEN_KEY);
+        window.localStorage.removeItem(AUTH_STORE_KEY);
+      }
+
+      if (!isHandlingUnauthorized && hasSession) {
+        isHandlingUnauthorized = true;
+        if (window.location.pathname !== "/login") {
+          window.location.replace("/login");
+        }
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export type AuthUser = {
   userId?: string;
