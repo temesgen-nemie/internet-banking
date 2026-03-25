@@ -425,7 +425,9 @@ export const getAllFlows = async () => {
 
 export const getFlowByName = async (flowName: string) => {
   try {
-    const response = await api.get<{ data: FlowJson[] }>(`/flows/${flowName}`);
+    const response = await api.get<{ data: FlowJson[] }>(
+      `/flows/${encodeURIComponent(flowName)}`
+    );
     return response.data.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -448,7 +450,7 @@ export const updateFlow = async (
 ) => {
   try {
     const response = await api.post(
-      `/flows/updateFlows/${flowName}`,
+      `/flows/updateFlows/${encodeURIComponent(flowName)}`,
       payload,
       operation ? { params: { operation } } : undefined
     );
@@ -562,7 +564,7 @@ export const updateFlowSettings = async (payload: FlowSettingsPayload) => {
 
 export const deleteFlow = async (flowName: string) => {
   try {
-    const response = await api.delete(`/flows/${flowName}`);
+    const response = await api.delete(`/flows/${encodeURIComponent(flowName)}`);
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -583,12 +585,15 @@ export const updateNodeInFlow = async (
   previousName?: string
 ) => {
   try {
-    const response = await api.put(`/flows/${flowName}/nodes/${nodeName}`, {
-      flowName,
-      nodeName,
-      previousName,
-      node: nodeData,
-    });
+    const response = await api.put(
+      `/flows/${encodeURIComponent(flowName)}/nodes/${encodeURIComponent(nodeName)}`,
+      {
+        flowName,
+        nodeName,
+        previousName,
+        node: nodeData,
+      }
+    );
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
