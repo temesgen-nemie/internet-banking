@@ -274,7 +274,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     [node.id, updateNodeData]
   );
 
-  const buildResponseOptions = React.useCallback((value: unknown) => {
+  const buildResponseOptions = React.useCallback((value: unknown, rootPrefix = "") => {
     const paths = new Set<string>();
 
     const walk = (current: unknown, prefix: string) => {
@@ -298,7 +298,10 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
       }
     };
 
-    walk(value, "");
+    if (rootPrefix) {
+      paths.add(rootPrefix);
+    }
+    walk(value, rootPrefix);
     return Array.from(paths);
   }, []);
 
@@ -333,24 +336,43 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
 
   const responseOptions = React.useMemo(() => {
     const body = storedResponse.body.trim();
-    if (!body) return [];
+    const options: string[] = [];
+
+    if (storedResponse.status !== null) {
+      options.push("statusCode");
+    }
+
+    const headerKeys = Object.keys(storedResponse.headers || {});
+    headerKeys.forEach((key) => {
+      if (key.trim()) {
+        options.push(`headers.${key}`);
+      }
+    });
+
+    if (!body) return options;
     try {
       const parsed = JSON.parse(body);
       if (typeof parsed === "string") {
         const xmlText = parsed.trim();
         if (xmlText.startsWith("<")) {
-          return buildXmlResponseOptions(xmlText);
+          return [...options, ...buildXmlResponseOptions(xmlText).map((path) => `data.${path}`)];
         }
-        return [];
+        return [...options, "data"];
       }
-      return buildResponseOptions(parsed);
+      return [...options, ...buildResponseOptions(parsed, "data")];
     } catch {
       if (body.startsWith("<")) {
-        return buildXmlResponseOptions(body);
+        return [...options, ...buildXmlResponseOptions(body).map((path) => `data.${path}`)];
       }
-      return [];
+      return [...options, "data"];
     }
-  }, [storedResponse.body, buildResponseOptions, buildXmlResponseOptions]);
+  }, [
+    storedResponse.body,
+    storedResponse.headers,
+    storedResponse.status,
+    buildResponseOptions,
+    buildXmlResponseOptions,
+  ]);
 
   React.useEffect(() => {
     if (bodyMode === "soap") {

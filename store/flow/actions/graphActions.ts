@@ -383,7 +383,11 @@ removeNodes: (ids) =>
       }
       // Start Node Cleanup
       else if (sourceNode.type === "start") {
-        updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, entryNode: "" }));
+        updateNodeDataLocal(sourceNode.id, (data) => ({
+          ...data,
+          entryNode: "",
+          entryNodeId: "",
+        }));
       }
     });
 

@@ -281,13 +281,13 @@ export const createStructureActions = ({
     const applyFlowNodeData = (node: Node): Node => {
       if (node.type === "start") {
         const startData = (node.data as Record<string, unknown>) || {};
-        const entryNodeValue = parsed.entryNodeId || parsed.entryNode || "";
         return {
           ...node,
           data: {
             ...startData,
             flowName: parsed.flowName ?? startData.flowName,
-            entryNode: entryNodeValue || startData.entryNode,
+            entryNode: parsed.entryNode || startData.entryNode,
+            entryNodeId: parsed.entryNodeId || startData.entryNodeId,
           },
         };
       }

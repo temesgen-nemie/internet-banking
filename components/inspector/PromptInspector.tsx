@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import NodeNameInput from "./NodeNameInput";
 import TargetNodeDisplay from "./TargetNodeDisplay";
 import { useFlowStore } from "../../store/flow/flowStore";
@@ -25,6 +25,7 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
+  responseBodyMapping?: Record<string, unknown>;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
@@ -50,11 +51,38 @@ type PromptNode = {
   data: PromptNodeData;
 };
 
+const stringifyPromptResponseBody = (node: PromptNode): string => {
+  const responseBody = node.data.responseBodyMapping;
+  if (responseBody && typeof responseBody === "object" && !Array.isArray(responseBody)) {
+    return JSON.stringify(responseBody, null, 2);
+  }
+
+  const rawMessage = String(node.data.message ?? "").trim();
+  if ((rawMessage.startsWith("{") && rawMessage.endsWith("}")) || (rawMessage.startsWith("[") && rawMessage.endsWith("]"))) {
+    return rawMessage;
+  }
+
+  return JSON.stringify(
+    {
+      message: String(node.data.message ?? ""),
+    },
+    null,
+    2
+  );
+};
+
 export default function PromptInspector({ node, updateNodeData }: PromptInspectorProps) {
   const nodes = useFlowStore((s) => s.nodes);
   const edges = useFlowStore((s) => s.edges);
   const [activeSearchIdx, setActiveSearchIdx] = useState<number | null>(null);
   const [activeFlowSearchIdx, setActiveFlowSearchIdx] = useState<number | null>(null);
+  const [responseBodyText, setResponseBodyText] = useState(() => stringifyPromptResponseBody(node));
+  const [responseBodyError, setResponseBodyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setResponseBodyText(stringifyPromptResponseBody(node));
+    setResponseBodyError(null);
+  }, [node]);
 
   // Find siblings: nodes in the same parent group or at root
   const siblings = nodes.filter(
@@ -271,6 +299,28 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
     return intro ? `${intro}\n\n${routingLines.join("\n")}` : routingLines.join("\n");
   };
 
+  const handleResponseBodyChange = (nextValue: string) => {
+    setResponseBodyText(nextValue);
+    try {
+      const parsed = JSON.parse(nextValue) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setResponseBodyError("Response JSON must be an object.");
+        return;
+      }
+
+      setResponseBodyError(null);
+      const nextData: Partial<Record<string, unknown>> = {
+        responseBodyMapping: parsed as Record<string, unknown>,
+      };
+      if (typeof (parsed as Record<string, unknown>).message === "string") {
+        nextData.message = String((parsed as Record<string, unknown>).message);
+      }
+      updateNodeData(node.id, nextData);
+    } catch (error) {
+      setResponseBodyError(error instanceof Error ? error.message : "Invalid JSON");
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 gap-6">
       {/* Left Column: Basic Info + Routing */}
@@ -282,12 +332,28 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
         />
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Message</label>
+          <label className="text-xs font-medium text-gray-600">Response JSON</label>
+          <textarea
+            className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900"
+            value={responseBodyText}
+            rows={10}
+            placeholder='{\n  "message": "utilities ok t"\n}'
+            onChange={(e) => handleResponseBodyChange(e.target.value)}
+          />
+          {responseBodyError && (
+            <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+              {responseBodyError}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-gray-600">Fallback Message</label>
           <textarea
             className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900"
             value={node.data.message || ""}
-            rows={8}
-            placeholder="Enter message text..."
+            rows={3}
+            placeholder="Enter fallback message..."
             onChange={(e) => updateNodeData(node.id, { message: e.target.value })}
           />
           <div className="mt-2 space-y-2 rounded-md border border-gray-100 bg-gray-50 p-2">

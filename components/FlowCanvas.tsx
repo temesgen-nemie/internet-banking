@@ -597,7 +597,10 @@ export default function FlowCanvas() {
             });
             return; // REJECT CONNECTION
           }
-          updateNodeData(sourceNode.id, { entryNode: params.target });
+          updateNodeData(sourceNode.id, {
+            entryNode: String(targetNode?.data?.name || ""),
+            entryNodeId: params.target || "",
+          });
         }
       }
 

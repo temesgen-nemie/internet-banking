@@ -366,6 +366,7 @@ export type CreateServicePayload = {
     e2eTestRunner: string;
     linter: string;
     dryRun: boolean;
+    port?: number;
 };
 
 export const createService = async (payload: CreateServicePayload) => {

@@ -8,6 +8,7 @@ export type FlowRoute = {
   toMainMenu?: boolean;
   isGoBack?: boolean;
   goBackTarget?: string;
+  goBackTargetId?: string;
   goBackToFlow?: string;
 };
 
@@ -19,6 +20,9 @@ export type FlowNode = {
   args?: Record<string, unknown>;
   saveAs?: string;
   message?: string;
+  responseBodyMapping?: Record<string, unknown>;
+  responseHeaders?: Record<string, unknown>;
+  responseStatusCode?: number;
   persistByIndex?: boolean;
   persistByIndexValue?: string;
   persistSourceField?: string;

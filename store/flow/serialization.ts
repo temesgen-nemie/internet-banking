@@ -103,13 +103,26 @@ export const replaceNextNodeNameInScript = (script: string, oldName: string, new
 
 export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const sanitizedVisualNodes = nodes.map((node) => {
-    if (node.type !== "prompt") return node;
+    const absolutePosition =
+      !node.parentNode &&
+      (node as unknown as { positionAbsolute?: { x?: number; y?: number } }).positionAbsolute &&
+      typeof (node as unknown as { positionAbsolute?: { x?: number; y?: number } }).positionAbsolute
+        ?.x === "number" &&
+      typeof (node as unknown as { positionAbsolute?: { x?: number; y?: number } }).positionAbsolute
+        ?.y === "number"
+        ? {
+            x: (node as unknown as { positionAbsolute: { x: number; y: number } }).positionAbsolute.x,
+            y: (node as unknown as { positionAbsolute: { x: number; y: number } }).positionAbsolute.y,
+          }
+        : node.position;
+
+    if (node.type !== "prompt") return { ...node, position: absolutePosition };
     const data = { ...((node.data as Record<string, unknown>) || {}) };
     delete data.routingMode;
     delete data.pagination;
     delete data.hasMultiplePage;
     delete data.indexPerPage;
-    return { ...node, data };
+    return { ...node, position: absolutePosition, data };
   });
 
   const nameById = new Map<string, string>();
@@ -146,7 +159,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
   const startNode = nodes.find((node) => node.type === "start");
   const startData = (startNode?.data as Record<string, unknown>) || {};
   const flowName = String(startData.flowName ?? "");
-  const entryNodeRaw = String(startData.entryNode ?? "");
+  const entryNodeRaw = String(startData.entryNodeId ?? startData.entryNode ?? "");
   const entryResolved = resolveTarget(entryNodeRaw);
 
   const flowNodes: FlowNode[] = nodes
@@ -178,6 +191,23 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const inputType = String(data.inputType ?? (data.inputValidationEnabled ? "STRING" : ""));
         const invalidInputTypeMessage = String(data.invalidInputTypeMessage ?? "");
         const promptExtras: Partial<FlowNode> = {
+          responseBodyMapping:
+            data.responseBodyMapping &&
+            typeof data.responseBodyMapping === "object" &&
+            !Array.isArray(data.responseBodyMapping)
+              ? (data.responseBodyMapping as Record<string, unknown>)
+              : undefined,
+          responseHeaders:
+            data.responseHeaders &&
+            typeof data.responseHeaders === "object" &&
+            !Array.isArray(data.responseHeaders)
+              ? (data.responseHeaders as Record<string, unknown>)
+              : undefined,
+          responseStatusCode:
+            typeof data.responseStatusCode === "number" &&
+            Number.isFinite(data.responseStatusCode)
+              ? data.responseStatusCode
+              : undefined,
           persistByIndex:
             typeof data.persistByIndex === "boolean" ? data.persistByIndex : undefined,
           persistByIndexValue:
@@ -225,7 +255,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             ...base,
             message,
             ...promptExtras,
-            nextNode: resolved.name || "",
+            nextNode: finalId,
             nextNodeId: finalId,
           };
         }
@@ -243,6 +273,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               gotoId?: string;
             }>;
             default?: string;
+            defaultId?: string;
           };
           routes = (nextObj.routes || []).map((route) => {
             const r = route as any;
@@ -258,10 +289,11 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             if (r.isGoBack) {
               const routeObj: FlowRoute = {
                 when,
-                goto: r.goBackTarget || r.gotoFlow || "",
-                gotoId: "",
+                goto: r.goBackTargetId || r.goBackTarget || r.gotoFlow || "",
+                gotoId: r.goBackTargetId || r.goBackTarget || "",
                 isGoBack: true,
-                goBackTarget: r.goBackTarget || "",
+                goBackTarget: r.goBackTargetId || r.goBackTarget || "",
+                goBackTargetId: r.goBackTargetId || r.goBackTarget || "",
               };
               if (r.goBackToFlow && r.goBackToFlow !== flowName) {
                 routeObj.goBackToFlow = r.goBackToFlow;
@@ -269,22 +301,22 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               return routeObj;
             }
 
-            const target = resolveTarget(route.gotoFlow || route.goto || "");
+            const target = resolveTarget(route.gotoFlow || route.gotoId || route.goto || "");
             const targetType = typeById.get(target.id);
             const isGroup = targetType === "group";
 
             return {
               when,
-              [isGroup ? "gotoFlow" : "goto"]: target.name || "",
+              [isGroup ? "gotoFlow" : "goto"]: isGroup ? target.name || "" : target.id || "",
               gotoId: target.id || "",
             } as FlowRoute;
           });
-          const defaultResolved = resolveTarget(nextObj.default || "");
-          defaultName = defaultResolved.name || "";
+          const defaultResolved = resolveTarget(nextObj.defaultId || nextObj.default || "");
+          defaultName = defaultResolved.id || "";
           defaultId = defaultResolved.id || "";
         } else if (typeof nextNode === "string" && nextNode) {
           const resolved = resolveTarget(nextNode);
-          defaultName = resolved.name || "";
+          defaultName = resolved.id || "";
           defaultId = resolved.id || "";
         }
 
@@ -361,7 +393,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           const target = resolveTarget(route.nextNodeId || "");
           return {
             when,
-            goto: target.name,
+            goto: target.id,
             gotoId: target.id,
           };
         });
@@ -370,7 +402,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           typeof data.nextNode === "string"
             ? data.nextNode
             : data.nextNode && typeof data.nextNode === "object"
-              ? (data.nextNode as any).default
+              ? (data.nextNode as any).defaultId || (data.nextNode as any).default
               : "";
         const defaultResolved = resolveTarget(nextNodeRaw || "");
 
@@ -410,7 +442,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           encryptResponseMappingKeys: (data.encryptResponseMappingKeys as string[]) || undefined,
           nextNode: {
             routes,
-            default: defaultResolved.name || "",
+            default: defaultResolved.id || "",
             defaultId: defaultResolved.id || "",
           },
         };
@@ -442,7 +474,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           functionName,
           args: args ?? {},
           saveAs,
-          nextNode: resolved.name || "",
+          nextNode: resolved.id || "",
         };
       }
 
@@ -455,7 +487,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           const target = resolveTarget(route.nextNodeId || "");
           return {
             key: route.key,
-            goto: target.name,
+            goto: target.id,
             gotoId: target.id,
           };
         });
@@ -463,7 +495,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           ...base,
           script: String(data.script ?? ""),
           timeoutMs: 25,
-          nextNode: resolved.name || "",
+          nextNode: resolved.id || "",
           scriptRoutes: scriptRoutes.length > 0 ? scriptRoutes : undefined,
         };
       }
@@ -472,29 +504,33 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         interface ConditionRoute {
           when?: any;
           goto?: string;
+          gotoId?: string;
         }
         interface ConditionNext {
           routes?: ConditionRoute[];
           default?: string;
+          defaultId?: string;
         }
         const nextNode = data.nextNode as ConditionNext;
         const routesRaw = nextNode?.routes || [];
 
         const routes = routesRaw.map((route) => {
-          const target = resolveTarget(route.goto || "");
+          const target = resolveTarget(route.gotoId || route.goto || "");
           return {
             when: route.when,
-            goto: target.name || "",
+            goto: target.id || "",
+            gotoId: target.id || "",
           };
         });
 
-        const defaultTarget = resolveTarget(nextNode?.default || "");
+        const defaultTarget = resolveTarget(nextNode?.defaultId || nextNode?.default || "");
 
         return {
           ...base,
           nextNode: {
             routes,
-            default: defaultTarget.name || "",
+            default: defaultTarget.id || "",
+            defaultId: defaultTarget.id || "",
           },
         };
       }
@@ -503,14 +539,17 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         interface RouterRoute {
           when?: Record<string, unknown>;
           goto?: string;
+          gotoId?: string;
           toMainMenu?: boolean;
           isGoBack?: boolean;
           goBackTarget?: string;
+          goBackTargetId?: string;
           goBackToFlow?: string;
         }
         interface RouterNext {
           routes?: RouterRoute[];
           default?: string;
+          defaultId?: string;
         }
 
         const nextNode = (data.nextNode as RouterNext) || {};
@@ -535,7 +574,8 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             const routeObj: FlowRoute = {
               when: route.when,
               isGoBack: true,
-              goBackTarget: route.goBackTarget || "",
+              goBackTarget: route.goBackTargetId || route.goBackTarget || "",
+              goBackTargetId: route.goBackTargetId || route.goBackTarget || "",
             };
             if (route.goBackToFlow && route.goBackToFlow !== flowName) {
               routeObj.goBackToFlow = route.goBackToFlow;
@@ -543,15 +583,15 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             return routeObj;
           }
 
-          const target = resolveTarget(route.goto || "");
+          const target = resolveTarget(route.gotoId || route.goto || "");
           return {
             when: route.when,
-            goto: target.name || "",
+            goto: target.id || "",
             gotoId: target.id || "",
           };
         });
 
-        const defaultTarget = resolveTarget(nextNode.default || "");
+        const defaultTarget = resolveTarget(nextNode.defaultId || nextNode.default || "");
 
         return {
           ...base,
@@ -563,7 +603,8 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               : undefined,
           nextNode: {
             routes,
-            default: defaultTarget.name || "",
+            default: defaultTarget.id || "",
+            defaultId: defaultTarget.id || "",
           },
         };
       }
@@ -573,7 +614,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
 
   return {
     flowName,
-    entryNode: entryResolved.name,
+    entryNode: entryResolved.id,
     entryNodeId: entryResolved.id,
     nodes: flowNodes,
     visualState: { nodes: sanitizedVisualNodes, edges },

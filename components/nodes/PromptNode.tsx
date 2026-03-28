@@ -16,6 +16,7 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
+  responseBodyMapping?: Record<string, unknown>;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
@@ -54,6 +55,27 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
     }
   };
 
+  const previewText = (() => {
+    if (
+      data.responseBodyMapping &&
+      typeof data.responseBodyMapping === "object" &&
+      !Array.isArray(data.responseBodyMapping)
+    ) {
+      try {
+        return JSON.stringify(data.responseBodyMapping, null, 2);
+      } catch {
+        return data.message || "No message";
+      }
+    }
+
+    const rawMessage = String(data.message ?? "").trim();
+    if ((rawMessage.startsWith("{") && rawMessage.endsWith("}")) || (rawMessage.startsWith("[") && rawMessage.endsWith("]"))) {
+      return rawMessage;
+    }
+
+    return data.message || "No message";
+  })();
+
   return (
     <div
       className={`group rounded-xl p-4 w-64 bg-white shadow-md border transition-all duration-200
@@ -75,8 +97,8 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
           </div>
         )}
       </div>
-      <div className="text-sm text-gray-700 break-all whitespace-pre-wrap transition-all duration-300">
-        {data.message || "No message"}
+      <div className="text-sm text-gray-700 break-all whitespace-pre-wrap transition-all duration-300 font-mono">
+        {previewText}
       </div>
 
       {/* Menu Mode: Show Logic Rules (No Handles) */}

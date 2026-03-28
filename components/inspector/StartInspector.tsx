@@ -8,6 +8,7 @@ type StartInspectorProps = {
 type StartNodeData = {
   flowName?: string;
   entryNode?: string;
+  entryNodeId?: string;
 };
 
 type StartNode = {
@@ -34,7 +35,7 @@ export default function StartInspector({
       </div>
 
       <TargetNodeDisplay
-        nodeId={node.data.entryNode}
+        nodeId={node.data.entryNodeId || node.data.entryNode}
         label="Entry Node"
         title="Connect the Start Node to the first node of your flow"
       />

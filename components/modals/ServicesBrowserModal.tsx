@@ -70,6 +70,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [serviceNameInput, setServiceNameInput] = useState("");
   const [createForm, setCreateForm] = useState<CreateServicePayload>({
     projectPath: "",
     projectNameAndRootFormat: "as-provided",
@@ -79,6 +80,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
     e2eTestRunner: "none",
     linter: "eslint",
     dryRun: false,
+    port: 3001,
   });
   const [createError, setCreateError] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
@@ -106,16 +108,32 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
   };
 
   const submitCreate = async () => {
-    if (!createForm.projectPath.trim()) {
-      setCreateError("Project path is required.");
+    const normalizedServiceName = serviceNameInput.trim();
+    if (!normalizedServiceName) {
+      setCreateError("Service name is required.");
+      return;
+    }
+    if (!/^[A-Za-z0-9_-]+$/.test(normalizedServiceName)) {
+      setCreateError("Service name can contain only letters, numbers, '-' and '_'.");
+      return;
+    }
+    if (
+      createForm.port !== undefined &&
+      (!Number.isInteger(createForm.port) || createForm.port < 1 || createForm.port > 65535)
+    ) {
+      setCreateError("Port must be between 1 and 65535.");
       return;
     }
     setCreateLoading(true);
     setCreateError(null);
     try {
-      await createService(createForm);
+      await createService({
+        ...createForm,
+        projectPath: `apps/${normalizedServiceName}`,
+      });
       setShowCreate(false);
-      setCreateForm((prev) => ({ ...prev, projectPath: "" }));
+      setServiceNameInput("");
+      setCreateForm((prev) => ({ ...prev, projectPath: "", port: 3001 }));
       await load(depth);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create service");
@@ -325,18 +343,33 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
               <div className="p-6 space-y-4 overflow-auto h-[calc(100%-120px)]">
                 <div>
                   <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
-                    Project Path
+                    Service Name
                   </label>
                   <input
                     className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400"
-                    value={createForm.projectPath}
+                    value={serviceNameInput}
+                    onChange={(e) => setServiceNameInput(e.target.value)}
+                    placeholder="utilities"
+                  />
+                  <div className="mt-1 text-[11px] text-gray-400">Created under <span className="font-mono">apps/{serviceNameInput.trim() || "service-name"}</span></div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
+                    Port
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={65535}
+                    className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400"
+                    value={createForm.port ?? ""}
                     onChange={(e) =>
                       setCreateForm((prev) => ({
                         ...prev,
-                        projectPath: e.target.value,
+                        port: e.target.value ? Number(e.target.value) : undefined,
                       }))
                     }
-                    placeholder="apps/utilities"
+                    placeholder="3001"
                   />
                 </div>
                 <div>
