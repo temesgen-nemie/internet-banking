@@ -17,6 +17,7 @@ type PromptNodeData = {
   name?: string;
   message?: string;
   responseBodyMapping?: Record<string, unknown>;
+  responseStatusCode?: number;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
@@ -85,9 +86,16 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
           : "border-gray-300"
       }`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-bold text-indigo-600 truncate max-w-[180px]">
-          {data.name || "Prompt"}
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <div className="min-w-0">
+          <div className="font-bold text-indigo-600 truncate max-w-[180px]">
+            {data.name || "Prompt"}
+          </div>
+          {typeof data.responseStatusCode === "number" && (
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              HTTP {data.responseStatusCode}
+            </div>
+          )}
         </div>
         {data.encryptInput && (
           <div title="Encrypted Input Active" className="bg-amber-100 p-1 rounded text-amber-600">

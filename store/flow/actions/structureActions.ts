@@ -300,6 +300,11 @@ export const createStructureActions = ({
 
       if (node.type === "prompt") {
         nextData.message = flowNode.message ?? nextData.message;
+        nextData.responseBodyMapping = flowNode.responseBodyMapping ?? nextData.responseBodyMapping;
+        nextData.responseStatusCode =
+          typeof flowNode.responseStatusCode === "number"
+            ? flowNode.responseStatusCode
+            : nextData.responseStatusCode;
         nextData.persistByIndex =
           typeof flowNode.persistByIndex === "boolean"
             ? flowNode.persistByIndex

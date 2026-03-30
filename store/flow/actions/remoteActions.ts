@@ -367,8 +367,14 @@ export const createRemoteFlowActions = ({
       const finalOtherNodes = otherNodes.map((n: Node) => {
         if (n.id === groupId && backendGroupNode) {
           const freshLogicalData = logicalDataMap.get(n.id);
+          const absolutePosition = (backendGroupNode as Node & {
+            positionAbsolute?: { x: number; y: number };
+          }).positionAbsolute;
+
           return {
             ...n,
+            ...backendGroupNode,
+            position: absolutePosition ?? backendGroupNode.position,
             data: { ...n.data, ...backendGroupNode.data, ...freshLogicalData },
           };
         }

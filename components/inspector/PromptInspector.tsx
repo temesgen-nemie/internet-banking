@@ -26,6 +26,7 @@ type PromptNodeData = {
   name?: string;
   message?: string;
   responseBodyMapping?: Record<string, unknown>;
+  responseStatusCode?: number;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
   inputValidationEnabled?: boolean;
@@ -78,10 +79,12 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
   const [activeFlowSearchIdx, setActiveFlowSearchIdx] = useState<number | null>(null);
   const [responseBodyText, setResponseBodyText] = useState(() => stringifyPromptResponseBody(node));
   const [responseBodyError, setResponseBodyError] = useState<string | null>(null);
+  const [responseStatusCodeText, setResponseStatusCodeText] = useState(() => String(node.data.responseStatusCode ?? 200));
 
   useEffect(() => {
     setResponseBodyText(stringifyPromptResponseBody(node));
     setResponseBodyError(null);
+    setResponseStatusCodeText(String(node.data.responseStatusCode ?? 200));
   }, [node]);
 
   // Find siblings: nodes in the same parent group or at root
@@ -1122,6 +1125,31 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                 <option value="CONTINUE">CONTINUE</option>
                 <option value="END">END</option>
               </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
+                Response Status Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all text-gray-900"
+                value={responseStatusCodeText}
+                onChange={(e) => {
+                  const digitsOnly = e.target.value.replace(/\D/g, "");
+                  setResponseStatusCodeText(digitsOnly);
+                }}
+                onBlur={() => {
+                  const parsed = Number.parseInt(responseStatusCodeText, 10);
+                  const nextValue = Number.isFinite(parsed) ? Math.min(599, Math.max(100, parsed)) : 200;
+                  setResponseStatusCodeText(String(nextValue));
+                  updateNodeData(node.id, { responseStatusCode: nextValue });
+                }}
+              />
+              <div className="mt-1 text-[10px] text-gray-400">
+                Used when this prompt returns an HTTP response body.
+              </div>
             </div>
           </div>
 

@@ -35,11 +35,13 @@ export const getParentGroupInfo = (
  * Used for deep comparison (Smart Diff) to detect IF meaningful changes exist.
  */
 export const calculateFlowSnapshot = (groupId: string, nodes: Node[], edges: Edge[]): string => {
+  const groupNode = nodes.find((n) => n.id === groupId);
   const children = nodes.filter((n) => n.parentNode === groupId);
+  const nodesInSnapshot = groupNode ? [groupNode, ...children] : children;
   const childIds = new Set(children.map((n) => n.id));
   const innerEdges = edges.filter((e) => childIds.has(e.source) && childIds.has(e.target));
 
-  const cleanNodes = children
+  const cleanNodes = nodesInSnapshot
     .map((n) => {
       // Extract only logical data, ignoring internal React Flow props like width/height
       const {

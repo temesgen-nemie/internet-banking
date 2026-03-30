@@ -338,6 +338,8 @@ export type ServiceEntry = {
     serviceName: string;
     nxProjectName: string;
     root: string;
+    port?: number | null;
+    basePath?: string | null;
     hasProjectJson: boolean;
     structure: ServiceStructureNode[];
 };
@@ -359,6 +361,7 @@ export const fetchServices = async (depth = 5): Promise<ServicesResponse> => {
 
 export type CreateServicePayload = {
     projectPath: string;
+    basePath?: string;
     projectNameAndRootFormat: string;
     framework: string;
     bundler: string;
@@ -382,6 +385,17 @@ export const deleteService = async (payload: DeleteServicePayload) => {
     const response = await api.delete("/folder/deleteService", {
         data: payload,
     });
+    return response.data;
+};
+
+export type UpdateServiceSettingsPayload = {
+    projectPath: string;
+    port: number;
+    basePath?: string;
+};
+
+export const updateServiceSettings = async (payload: UpdateServiceSettingsPayload) => {
+    const response = await api.put("/folder/updateServicePort", payload);
     return response.data;
 };
 

@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createService,
   deleteService,
   fetchServices,
+  updateServiceSettings,
   type CreateServicePayload,
   type ServiceEntry,
   type ServiceStructureNode,
@@ -26,6 +27,16 @@ import {
 type ServicesBrowserModalProps = {
   open: boolean;
   onClose: () => void;
+};
+
+const buildDefaultProjectPath = (serviceName: string) => {
+  const normalized = serviceName.trim();
+  return normalized ? `apps/${normalized}` : "apps/service-name";
+};
+
+const buildDefaultBasePath = (serviceName: string) => {
+  const normalized = serviceName.trim();
+  return normalized ? `/v1/${normalized}` : '/v1/service-name';
 };
 
 const TreeItem = ({
@@ -86,6 +97,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
   const [serviceNameInput, setServiceNameInput] = useState("");
   const [createForm, setCreateForm] = useState<CreateServicePayload>({
     projectPath: "",
+    basePath: "",
     projectNameAndRootFormat: "as-provided",
     framework: "express",
     bundler: "esbuild",
@@ -100,6 +112,10 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
   const [deleteTarget, setDeleteTarget] = useState<ServiceEntry | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLoadingName, setDeleteLoadingName] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<ServiceEntry | null>(null);
+  const [editForm, setEditForm] = useState<{ port: string; basePath: string }>({ port: "", basePath: "" });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   const selectedService = useMemo(
     () => services.find((s) => s.serviceName === selected) || services[0],
@@ -144,8 +160,59 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
     }
   };
 
+
+  const openEdit = (service: ServiceEntry) => {
+    setEditTarget(service);
+    setEditError(null);
+    setEditForm({
+      port: service.port !== null && service.port !== undefined ? String(service.port) : "",
+      basePath: typeof service.basePath === "string" ? service.basePath : "",
+    });
+  };
+
+  const submitEdit = async () => {
+    if (!editTarget) return;
+    const parsedPort = Number(editForm.port);
+    if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      setEditError("Port must be between 1 and 65535.");
+      return;
+    }
+
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      await updateServiceSettings({
+        projectPath: editTarget.root,
+        port: parsedPort,
+        basePath: editForm.basePath.trim() || undefined,
+      });
+      toast.success(`Updated ${editTarget.serviceName} successfully.`);
+      setEditTarget(null);
+      await load(depth);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to update service settings");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+
+  useEffect(() => {
+    if (!editTarget) return;
+    setEditForm({
+      port:
+        editTarget.port !== null && editTarget.port !== undefined
+          ? String(editTarget.port)
+          : "",
+      basePath: typeof editTarget.basePath === "string" ? editTarget.basePath : "",
+    });
+  }, [editTarget]);
+
   const submitCreate = async () => {
     const normalizedServiceName = serviceNameInput.trim();
+    const normalizedProjectPath = buildDefaultProjectPath(normalizedServiceName);
+    const normalizedBasePath = createForm.basePath?.trim();
+
     if (!normalizedServiceName) {
       setCreateError("Service name is required.");
       return;
@@ -166,11 +233,12 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
     try {
       await createService({
         ...createForm,
-        projectPath: `apps/${normalizedServiceName}`,
+        projectPath: normalizedProjectPath,
+        basePath: normalizedBasePath || undefined,
       });
       setShowCreate(false);
       setServiceNameInput("");
-      setCreateForm((prev) => ({ ...prev, projectPath: "", port: 3001 }));
+      setCreateForm((prev) => ({ ...prev, projectPath: "", basePath: "", port: 3001 }));
       await load(depth);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create service");
@@ -292,28 +360,46 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                       </div>
                       <div className="text-[10px] opacity-70 mt-1 truncate">{service.root}</div>
                     </div>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${service.serviceName}`}
-                      title={`Delete ${service.serviceName}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDeleteError(null);
-                        setDeleteTarget(service);
-                      }}
-                      className={`shrink-0 rounded-md border p-1.5 transition-all ${
-                        service.serviceName === selectedService?.serviceName
-                          ? "border-white/20 bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
-                          : "border-red-100 bg-white text-red-500 opacity-0 shadow-sm group-hover:opacity-100 group-focus-within:opacity-100 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      }`}
-                      disabled={deleteLoadingName === service.serviceName}
-                    >
-                      {deleteLoadingName === service.serviceName ? (
-                        <span className="block h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={`Edit ${service.serviceName}`}
+                        title={`Edit ${service.serviceName}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEdit(service);
+                        }}
+                        className={`rounded-md border p-1.5 transition-all ${
+                          service.serviceName === selectedService?.serviceName
+                            ? "border-white/20 bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+                            : "border-emerald-100 bg-white text-emerald-600 opacity-0 shadow-sm group-hover:opacity-100 group-focus-within:opacity-100 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        }`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${service.serviceName}`}
+                        title={`Delete ${service.serviceName}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDeleteError(null);
+                          setDeleteTarget(service);
+                        }}
+                        className={`rounded-md border p-1.5 transition-all ${
+                          service.serviceName === selectedService?.serviceName
+                            ? "border-white/20 bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+                            : "border-red-100 bg-white text-red-500 opacity-0 shadow-sm group-hover:opacity-100 group-focus-within:opacity-100 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        }`}
+                        disabled={deleteLoadingName === service.serviceName}
+                      >
+                        {deleteLoadingName === service.serviceName ? (
+                          <span className="block h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -424,10 +510,29 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                   <input
                     className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400"
                     value={serviceNameInput}
-                    onChange={(e) => setServiceNameInput(e.target.value)}
+                    onChange={(e) => {
+                      setServiceNameInput(e.target.value);
+                    }}
                     placeholder="utilities"
                   />
-                  <div className="mt-1 text-[11px] text-gray-400">Created under <span className="font-mono">apps/{serviceNameInput.trim() || "service-name"}</span></div>
+                  <div className="mt-1 text-[11px] text-gray-400">Created under <span className="font-mono">{buildDefaultProjectPath(serviceNameInput)}</span></div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
+                    URL Base Path
+                  </label>
+                  <input
+                    className="w-full text-sm border-2 border-gray-200 rounded-lg bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400"
+                    value={createForm.basePath ?? ''}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        basePath: e.target.value,
+                      }))
+                    }
+                    placeholder={buildDefaultBasePath(serviceNameInput)}
+                  />
+                  <div className="mt-1 text-[11px] text-gray-400">This becomes the HTTP prefix after the port, for example <span className="font-mono">/v1/utilities</span>. Routes like <span className="font-mono">/lookup</span> will be served under that prefix.</div>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
@@ -549,6 +654,73 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
           </div>
         )}
       </div>
+
+      <AlertDialog
+        open={Boolean(editTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !editLoading) {
+            setEditTarget(null);
+            setEditError(null);
+          }
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edit service settings</AlertDialogTitle>
+            <AlertDialogDescription>
+              {editTarget ? (
+                <>
+                  Update <strong>{editTarget.serviceName}</strong> port and URL base path.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                  Port
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={editForm.port}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, port: e.target.value }))}
+                  className="w-full rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-emerald-400 focus:outline-none"
+                  placeholder="3001"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                  URL Base Path
+                </label>
+                <input
+                  value={editForm.basePath}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, basePath: e.target.value }))}
+                  className="w-full rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-emerald-400 focus:outline-none"
+                  placeholder={editTarget ? `/v1/${editTarget.serviceName}` : "/v1/service"}
+                />
+              </div>
+            </div>
+            {editError ? (
+              <div className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-left text-xs text-red-600">
+                {editError}
+              </div>
+            ) : null}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={editLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void submitEdit();
+              }}
+              disabled={editLoading || !editTarget}
+            >
+              {editLoading ? "Saving..." : "Save Changes"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(deleteTarget)}
