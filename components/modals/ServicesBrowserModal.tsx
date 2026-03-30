@@ -99,7 +99,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
   const [createLoading, setCreateLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ServiceEntry | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteLoadingName, setDeleteLoadingName] = useState<string | null>(null);
 
   const selectedService = useMemo(
     () => services.find((s) => s.serviceName === selected) || services[0],
@@ -128,20 +128,19 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
     }
   };
 
-  const submitDelete = async () => {
-    if (!deleteTarget) return;
-
-    setDeleteLoading(true);
+  const submitDelete = async (service: ServiceEntry) => {
+    setDeleteLoadingName(service.serviceName);
     setDeleteError(null);
     try {
-      await deleteService({ projectPath: deleteTarget.root });
-      toast.success(`Deleted ${deleteTarget.serviceName} successfully.`);
+      await deleteService({ projectPath: service.root });
+      toast.success(`Deleted ${service.serviceName} successfully.`);
       setDeleteTarget(null);
       await load(depth);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete service");
+      toast.error(`Failed to delete ${service.serviceName}.`);
     } finally {
-      setDeleteLoading(false);
+      setDeleteLoadingName(null);
     }
   };
 
@@ -264,10 +263,18 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
             </div>
             <div className="space-y-1.5">
               {services.map((service) => (
-                <button
+                <div
                   key={service.serviceName}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelected(service.serviceName)}
-                  className={`group w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelected(service.serviceName);
+                    }
+                  }}
+                  className={`group w-full cursor-pointer text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-300 ${
                     service.serviceName === selectedService?.serviceName
                       ? "bg-indigo-600 text-white shadow-sm"
                       : "bg-gray-50 text-gray-700 hover:bg-indigo-50"
@@ -288,6 +295,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                     <button
                       type="button"
                       aria-label={`Delete ${service.serviceName}`}
+                      title={`Delete ${service.serviceName}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         setDeleteError(null);
@@ -298,11 +306,16 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
                           ? "border-white/20 bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
                           : "border-red-100 bg-white text-red-500 opacity-0 shadow-sm group-hover:opacity-100 group-focus-within:opacity-100 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                       }`}
+                      disabled={deleteLoadingName === service.serviceName}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {deleteLoadingName === service.serviceName ? (
+                        <span className="block h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
-                </button>
+                </div>
               ))}
               {services.length === 0 && !loading && (
                 <div className="text-xs text-gray-400">No services found.</div>
@@ -314,6 +327,11 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
             {error && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
                 {error}
+              </div>
+            )}
+            {deleteError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                {deleteError}
               </div>
             )}
             {loading && <div className="text-sm text-gray-500">Loading services...</div>}
@@ -535,7 +553,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen && !deleteLoading) {
+          if (!nextOpen && !deleteLoadingName) {
             setDeleteTarget(null);
             setDeleteError(null);
           }
@@ -547,7 +565,7 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
             <AlertDialogDescription>
               {deleteTarget ? (
                 <>
-                  This will permanently delete <strong>{deleteTarget.serviceName}</strong> from{" "}
+                  This will permanently delete <strong>{deleteTarget.serviceName}</strong> from {" "}
                   <span className="font-mono text-xs">{deleteTarget.root}</span>.
                 </>
               ) : (
@@ -561,16 +579,18 @@ export default function ServicesBrowserModal({ open, onClose }: ServicesBrowserM
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={Boolean(deleteLoadingName)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              disabled={deleteLoading}
+              disabled={Boolean(deleteLoadingName) || !deleteTarget}
               onClick={(event) => {
                 event.preventDefault();
-                void submitDelete();
+                if (deleteTarget) {
+                  void submitDelete(deleteTarget);
+                }
               }}
             >
-              {deleteLoading ? "Deleting..." : "Delete Service"}
+              {deleteLoadingName ? "Deleting..." : "Delete Service"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
