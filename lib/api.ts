@@ -374,6 +374,17 @@ export const createService = async (payload: CreateServicePayload) => {
     return response.data;
 };
 
+export type DeleteServicePayload = {
+    projectPath: string;
+};
+
+export const deleteService = async (payload: DeleteServicePayload) => {
+    const response = await api.delete("/folder/deleteService", {
+        data: payload,
+    });
+    return response.data;
+};
+
 export async function checkMyFlowPermission(flowName: string, userId: string): Promise<boolean> {
   const res = await api.get<FlowPermissionCheckResponse>(
     `/flows/${encodeURIComponent(flowName)}/permissions/check`,
