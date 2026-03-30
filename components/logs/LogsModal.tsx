@@ -47,7 +47,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   useEffect(() => {
     const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(
-      `${wsProtocol}://ussdtool.profilesage.com/admin/logs/stream`
+      `${wsProtocol}://localhost:5000/admin/logs/stream`
     );
 
     socket.addEventListener("open", () => {

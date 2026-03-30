@@ -552,8 +552,12 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           defaultId?: string;
         }
 
-        const nextNode = (data.nextNode as RouterNext) || {};
-        const routesRaw = nextNode.routes || [];
+        const nextNodeRaw = data.nextNode;
+        const nextNode =
+          nextNodeRaw && typeof nextNodeRaw === "object"
+            ? (nextNodeRaw as RouterNext)
+            : undefined;
+        const routesRaw = nextNode?.routes || [];
         const responseMappingRaw =
           (data.responseMapping as Record<string, unknown>) || {};
         const responseMapping = Object.fromEntries(
@@ -591,12 +595,21 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           };
         });
 
-        const defaultTarget = resolveTarget(nextNode.defaultId || nextNode.default || "");
+        const defaultTarget =
+          typeof nextNodeRaw === "string"
+            ? resolveTarget(nextNodeRaw)
+            : resolveTarget(nextNode?.defaultId || nextNode?.default || "");
 
         return {
           ...base,
           url: String(data.url ?? ""),
           method: String(data.method ?? "POST"),
+          sessionMode:
+            data.sessionMode === "required" ||
+            data.sessionMode === "optional" ||
+            data.sessionMode === "disabled"
+              ? data.sessionMode
+              : undefined,
           responseMapping:
             Object.keys(responseMapping).length > 0
               ? responseMapping
@@ -620,3 +633,4 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     visualState: { nodes: sanitizedVisualNodes, edges },
   };
 };
+

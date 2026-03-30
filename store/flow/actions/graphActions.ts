@@ -337,7 +337,7 @@ removeNodes: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "" } };
+            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -349,7 +349,7 @@ removeNodes: (ids) =>
               if (!nextNode || !nextNode.routes) return data;
               const routes = [...nextNode.routes];
               if (!routes[routeIdx]) return data;
-              routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+              routes[routeIdx] = { ...routes[routeIdx], goto: "", gotoId: "" };
               return { ...data, nextNode: { ...nextNode, routes } };
             });
           }
@@ -361,28 +361,28 @@ removeNodes: (ids) =>
           updateNodeDataLocal(sourceNode.id, (data) => {
             const nextNode =
               (data.nextNode as
-                | { routes?: Array<Record<string, unknown>>; default?: string }
+                | { routes?: Array<Record<string, unknown>>; default?: string; defaultId?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "" } };
+            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
-          if (!Number.isNaN(routeIdx)) {
-            updateNodeDataLocal(sourceNode.id, (data) => {
-              const nextNode = data.nextNode as
-                | { routes?: Array<Record<string, unknown>>; default?: string }
-                | undefined;
-              if (!nextNode || !nextNode.routes) return data;
-              const routes = [...nextNode.routes];
-              if (!routes[routeIdx]) return data;
-              routes[routeIdx] = { ...routes[routeIdx], goto: "" };
-              return { ...data, nextNode: { ...nextNode, routes } };
-            });
-          }
+          if (Number.isNaN(routeIdx)) return;
+          updateNodeDataLocal(sourceNode.id, (data) => {
+            const nextNode = data.nextNode as
+              | { routes?: Array<Record<string, unknown>>; default?: string; defaultId?: string }
+              | undefined;
+            if (!nextNode || !nextNode.routes) return data;
+            const routes = [...nextNode.routes];
+            if (!routes[routeIdx]) return data;
+            routes[routeIdx] = { ...routes[routeIdx], goto: "", gotoId: "" };
+            return { ...data, nextNode: { ...nextNode, routes } };
+          });
         }
+        return;
       }
-      // Start Node Cleanup
-      else if (sourceNode.type === "start") {
+
+      if (sourceNode.type === "start") {
         updateNodeDataLocal(sourceNode.id, (data) => ({
           ...data,
           entryNode: "",
@@ -567,7 +567,7 @@ removeEdges: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "" } };
+            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -579,7 +579,7 @@ removeEdges: (ids) =>
             if (!nextNode || !nextNode.routes) return data;
             const routes = [...nextNode.routes];
             if (!routes[routeIdx]) return data;
-            routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+            routes[routeIdx] = { ...routes[routeIdx], goto: "", gotoId: "" };
             return { ...data, nextNode: { ...nextNode, routes } };
           });
         }
@@ -593,7 +593,7 @@ removeEdges: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "" } };
+            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -605,7 +605,7 @@ removeEdges: (ids) =>
             if (!nextNode || !nextNode.routes) return data;
             const routes = [...nextNode.routes];
             if (!routes[routeIdx]) return data;
-            routes[routeIdx] = { ...routes[routeIdx], goto: "" };
+            routes[routeIdx] = { ...routes[routeIdx], goto: "", gotoId: "" };
             return { ...data, nextNode: { ...nextNode, routes } };
           });
         }

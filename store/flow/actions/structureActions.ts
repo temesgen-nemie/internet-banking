@@ -348,6 +348,38 @@ export const createStructureActions = ({
         return { ...node, data: nextData };
       }
 
+      if (node.type === "router") {
+        nextData.url = flowNode.url ?? nextData.url;
+        nextData.method = flowNode.method ?? nextData.method;
+        nextData.sessionMode = flowNode.sessionMode ?? nextData.sessionMode;
+        nextData.responseMapping = flowNode.responseMapping ?? nextData.responseMapping;
+
+        if (typeof flowNode.nextNode === "string") {
+          nextData.nextNode = {
+            routes: [],
+            default: flowNode.nextNode,
+            defaultId: flowNode.nextNode,
+          };
+        } else if (flowNode.nextNode && typeof flowNode.nextNode === "object") {
+          nextData.nextNode = {
+            routes: (flowNode.nextNode.routes || []).map((route) => ({
+              when: route.when,
+              goto: route.gotoId || route.goto || route.gotoFlow || "",
+              gotoId: route.gotoId || route.goto || route.gotoFlow || "",
+              toMainMenu: route.toMainMenu,
+              isGoBack: route.isGoBack,
+              goBackTarget: route.goBackTargetId || route.goBackTarget || "",
+              goBackTargetId: route.goBackTargetId || route.goBackTarget || "",
+              goBackToFlow: route.goBackToFlow,
+            })),
+            default: flowNode.nextNode.default || flowNode.nextNode.defaultId || "",
+            defaultId: flowNode.nextNode.defaultId || flowNode.nextNode.default || "",
+          };
+        }
+
+        return { ...node, data: nextData };
+      }
+
       if (node.type === "action") {
         nextData.requestSource = flowNode.requestSource ?? nextData.requestSource;
         nextData.endpoint = flowNode.endpoint ?? nextData.endpoint;

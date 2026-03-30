@@ -431,10 +431,15 @@ export default function FlowCanvas() {
               });
               return; // REJECT CONNECTION
             }
+            const currentNextNode =
+              typeof sourceNode.data.nextNode === "string"
+                ? { routes: [], default: sourceNode.data.nextNode, defaultId: sourceNode.data.nextNode }
+                : ((sourceNode.data.nextNode as object) || {});
             updateNodeData(sourceNode.id, {
               nextNode: {
-                ...((sourceNode.data.nextNode as object) || {}),
+                ...currentNextNode,
                 default: params.target,
+                defaultId: params.target,
               },
             });
           } else {
@@ -485,21 +490,23 @@ export default function FlowCanvas() {
               });
               return;
             }
+            const currentNextNode =
+              typeof sourceNode.data.nextNode === "string"
+                ? { routes: [], default: sourceNode.data.nextNode, defaultId: sourceNode.data.nextNode }
+                : ((sourceNode.data.nextNode as object) || {});
             updateNodeData(sourceNode.id, {
               nextNode: {
-                ...((sourceNode.data.nextNode as object) || {}),
+                ...currentNextNode,
                 default: params.target,
+                defaultId: params.target,
               },
             });
           } else {
             const routeIdx = parseInt(handleId.split("-")[1], 10);
             const nextNode = (sourceNode.data.nextNode || { routes: [] }) as {
-              routes?: Array<{
-                toMainMenu?: boolean;
-                isGoBack?: boolean;
-                goto?: string;
-              }>;
+              routes?: Array<Record<string, unknown>>;
               default?: string;
+              defaultId?: string;
             };
 
             if (!Number.isNaN(routeIdx) && nextNode.routes && nextNode.routes[routeIdx]) {
@@ -513,6 +520,7 @@ export default function FlowCanvas() {
               newRoutes[routeIdx] = {
                 ...newRoutes[routeIdx],
                 goto: params.target || "",
+                gotoId: params.target || "",
               };
 
               updateNodeData(sourceNode.id, {
@@ -580,12 +588,17 @@ export default function FlowCanvas() {
             });
             return;
           }
-          updateNodeData(sourceNode.id, {
-            nextNode: {
-              ...((sourceNode.data.nextNode as object) || {}),
-              default: params.target,
-            },
-          });
+          const currentNextNode =
+              typeof sourceNode.data.nextNode === "string"
+                ? { routes: [], default: sourceNode.data.nextNode, defaultId: sourceNode.data.nextNode }
+                : ((sourceNode.data.nextNode as object) || {});
+            updateNodeData(sourceNode.id, {
+              nextNode: {
+                ...currentNextNode,
+                default: params.target,
+                defaultId: params.target,
+              },
+            });
         }
         // Start Node Logic:
         else if (sourceNode && sourceNode.type === "start") {
@@ -694,7 +707,7 @@ export default function FlowCanvas() {
       } else if (type === "condition") {
         data = { name: "", nextNode: { routes: [], default: "" } };
       } else if (type === "router") {
-        data = { name: "", url: "", method: "POST", responseMapping: {}, nextNode: { routes: [], default: "" } };
+        data = { name: "", url: "", method: "POST", sessionMode: "required", responseMapping: {}, nextNode: { routes: [], default: "" } };
       }
 
       addNode({

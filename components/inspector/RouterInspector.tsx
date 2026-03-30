@@ -4,6 +4,8 @@ import { useState } from "react";
 import NodeNameInput from "./NodeNameInput";
 import TargetNodeDisplay from "./TargetNodeDisplay";
 
+type RouterSessionMode = "required" | "optional" | "disabled";
+
 type RouterInspectorProps = {
   node: {
     id: string;
@@ -11,8 +13,9 @@ type RouterInspectorProps = {
       name?: string;
       url?: string;
       method?: string;
+      sessionMode?: RouterSessionMode;
       responseMapping?: Record<string, string>;
-      nextNode?: RouterNextNode;
+      nextNode?: string | RouterNextNode;
     };
   };
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
@@ -30,6 +33,7 @@ type RouterRoute = {
 type RouterNextNode = {
   routes?: RouterRoute[];
   default?: string;
+  defaultId?: string;
 };
 
 type MappingRow = {
@@ -38,16 +42,51 @@ type MappingRow = {
   value: string;
 };
 
+const SESSION_MODE_OPTIONS: Array<{
+  value: RouterSessionMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "required",
+    label: "Required",
+    description: "Always load or create session state.",
+  },
+  {
+    value: "optional",
+    label: "Optional",
+    description: "Use session only when one is supplied.",
+  },
+  {
+    value: "disabled",
+    label: "Disabled",
+    description: "Skip Redis and run this route statelessly.",
+  },
+];
+
 export default function RouterInspector({
   node,
   updateNodeData,
 }: RouterInspectorProps) {
-  const nextNode = ((node.data?.nextNode as RouterNextNode) || {
-    routes: [],
-    default: "",
-  }) as RouterNextNode;
+  const rawNextNode = node.data?.nextNode;
+  const nextNode =
+    typeof rawNextNode === "string"
+      ? {
+          routes: [],
+          default: rawNextNode,
+          defaultId: rawNextNode,
+        }
+      : ((rawNextNode as RouterNextNode) || {
+          routes: [],
+          default: "",
+          defaultId: "",
+        });
   const routes = nextNode.routes || [];
-  const defaultRoute = nextNode.default || "";
+  const defaultRoute = nextNode.defaultId || nextNode.default || "";
+  const sessionMode =
+    node.data.sessionMode === "optional" || node.data.sessionMode === "disabled"
+      ? node.data.sessionMode
+      : "required";
 
   const toMappingRows = () => {
     const mapping = node.data.responseMapping || {};
@@ -167,6 +206,33 @@ export default function RouterInspector({
               placeholder="/api/menu/nav"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+            Session Type
+          </label>
+          <select
+            className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-amber-500 transition-all text-gray-900 cursor-pointer"
+            value={sessionMode}
+            onChange={(e) =>
+              updateNodeData(node.id, {
+                sessionMode: e.target.value as RouterSessionMode,
+              })
+            }
+          >
+            {SESSION_MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1.5">
+            {
+              SESSION_MODE_OPTIONS.find((option) => option.value === sessionMode)
+                ?.description
+            }
+          </p>
         </div>
       </div>
 

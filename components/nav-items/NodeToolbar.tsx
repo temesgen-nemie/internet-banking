@@ -58,6 +58,7 @@ export default function NodeToolbar() {
                       name: "",
                       url: "",
                       method: "POST",
+                      sessionMode: "required",
                       responseMapping: {},
                       nextNode: { routes: [], default: "" },
                     }

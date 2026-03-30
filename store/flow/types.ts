@@ -23,6 +23,7 @@ export type FlowNode = {
   responseBodyMapping?: Record<string, unknown>;
   responseHeaders?: Record<string, unknown>;
   responseStatusCode?: number;
+  sessionMode?: "required" | "optional" | "disabled";
   persistByIndex?: boolean;
   persistByIndexValue?: string;
   persistSourceField?: string;

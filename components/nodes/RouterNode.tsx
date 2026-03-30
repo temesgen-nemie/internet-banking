@@ -13,14 +13,16 @@ type RouterRoute = {
 type RouterNextNode = {
   routes?: RouterRoute[];
   default?: string;
+  defaultId?: string;
 };
 
 type RouterNodeData = {
   name?: string;
   url?: string;
   method?: string;
+  sessionMode?: "required" | "optional" | "disabled";
   responseMapping?: Record<string, string>;
-  nextNode?: RouterNextNode;
+  nextNode?: string | RouterNextNode;
 };
 
 type RouterNodeProps = NodeProps<RouterNodeData>;
@@ -41,7 +43,11 @@ export default function RouterNode({ id, data, selected }: RouterNodeProps) {
     }
   };
 
-  const routes = data.nextNode?.routes || [];
+  const nextNode =
+    typeof data.nextNode === "string"
+      ? { routes: [], default: data.nextNode, defaultId: data.nextNode }
+      : data.nextNode;
+  const routes = nextNode?.routes || [];
 
   return (
     <div
@@ -78,6 +84,10 @@ export default function RouterNode({ id, data, selected }: RouterNodeProps) {
         <div className="text-[10px] text-gray-500 font-mono truncate rounded bg-amber-50 px-2 py-1 border border-amber-100">
           <span className="font-bold text-amber-700">{data.method || "POST"}</span>{" "}
           {data.url || "/api/menu/nav"}
+        </div>
+
+        <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wide rounded bg-gray-50 px-2 py-1 border border-gray-100">
+          Session: <span className="font-bold text-gray-700">{data.sessionMode || "required"}</span>
         </div>
 
         {routes.map((route, idx) => {
@@ -156,7 +166,7 @@ export default function RouterNode({ id, data, selected }: RouterNodeProps) {
           </span>
           <span className="text-gray-600 font-medium truncate max-w-[100px] ml-auto mr-2">
             {(() => {
-              const fallback = data.nextNode?.default;
+              const fallback = nextNode?.defaultId || nextNode?.default;
               if (!fallback) return "Stay";
               const resolved = resolveTargetId(fallback);
               const targetNode = nodes.find((n) => n.id === fallback);
