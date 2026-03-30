@@ -16,14 +16,24 @@ const FlowCanvas = dynamic(() => import("../components/FlowCanvas"), {
 export default function Home() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const fetchMe = useAuthStore((s) => s.fetchMe);
   const inspectorOpen = useFlowStore((s) => s.inspectorOpen);
   const selectedNodeId = useFlowStore((s) => s.selectedNodeId);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    void fetchMe();
+  }, [fetchMe]);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return null;
