@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 type AdminGateProps = {
   children: React.ReactNode;
   redirectTo?: string;
-};
+}; 
 
 export default function AdminGate({
   children,
