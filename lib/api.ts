@@ -399,6 +399,35 @@ export const updateServiceSettings = async (payload: UpdateServiceSettingsPayloa
     return response.data;
 };
 
+export type ServiceFlowBundle = {
+  kind: "service-flow-bundle";
+  version: 1;
+  sourceService: string;
+  exportedAt: string;
+  flows: Record<string, unknown>[];
+};
+
+export const exportServiceFlowBundle = async (payload: { projectPath: string }) => {
+  const response = await api.post<{
+    message: string;
+    serviceName: string;
+    bundle: ServiceFlowBundle;
+  }>("/folder/exportServiceFlows", payload);
+  return response.data;
+};
+
+export const importServiceFlowBundle = async (payload: {
+  projectPath: string;
+  bundle: ServiceFlowBundle;
+}) => {
+  const response = await api.post<{
+    message: string;
+    targetService: string;
+    importedFlows: number;
+  }>("/folder/importServiceFlows", payload);
+  return response.data;
+};
+
 export async function checkMyFlowPermission(flowName: string, userId: string): Promise<boolean> {
   const res = await api.get<FlowPermissionCheckResponse>(
     `/flows/${encodeURIComponent(flowName)}/permissions/check`,

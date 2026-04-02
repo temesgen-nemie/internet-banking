@@ -19,6 +19,7 @@ import {
   useEffect,
   useRef,
   type DragEvent,
+  type ChangeEvent,
   type MouseEvent as ReactMouseEvent,
   useState,
   useMemo,
@@ -28,7 +29,12 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { useFlowStore } from "../store/flow/flowStore";
 import { useAuthStore } from "../store/authStore";
-import { checkMyFlowPermission } from "../lib/api";
+import {
+  checkMyFlowPermission,
+  exportServiceFlowBundle,
+  importServiceFlowBundle,
+  type ServiceFlowBundle,
+} from "../lib/api";
 import PromptNode from "./nodes/PromptNode";
 import ActionNode from "./nodes/ActionNode";
 import StartNode from "./nodes/StartNode";
@@ -58,10 +64,15 @@ const nodeTypes = {
 };
 
 export default function FlowCanvas() {
+  const serviceImportInputRef = useRef<HTMLInputElement | null>(null);
   const [menu, setMenu] = useState<{
     id: string;
     top: number;
     left: number;
+  } | null>(null);
+  const [serviceImportTarget, setServiceImportTarget] = useState<{
+    projectPath: string;
+    serviceName: string;
   } | null>(null);
   const { resolvedTheme } = useTheme();
   const backgroundDotColor =
@@ -134,6 +145,141 @@ export default function FlowCanvas() {
       );
     });
   }, [edges, nodes, currentSubflowId]);
+
+  const resolveRootServiceTarget = useCallback(
+    (groupId: string) => {
+      if (currentSubflowId !== null) {
+        return null;
+      }
+
+      const groupNode = nodes.find((node) => node.id === groupId);
+      if (!groupNode || groupNode.type !== "group" || groupNode.parentNode) {
+        return null;
+      }
+
+      const children = nodes.filter((node) => node.parentNode === groupId);
+      const startNode = children.find((node) => node.type === "start");
+      const startNodeData = (startNode?.data as { flowName?: unknown } | undefined) ?? {};
+      const flowName =
+        typeof startNodeData.flowName === "string" ? String(startNodeData.flowName).trim() : "";
+      const groupName =
+        typeof groupNode.data?.name === "string" ? String(groupNode.data.name).trim() : "";
+      const serviceName =
+        (flowName ? flowName.split("/")[0]?.trim() : "") ||
+        (groupNode.id.startsWith("service-root-")
+          ? groupNode.id.slice("service-root-".length).trim()
+          : "") ||
+        groupName;
+
+      if (!serviceName || serviceName === "builder") {
+        return null;
+      }
+
+      return {
+        serviceName,
+        projectPath: `apps/${serviceName}`,
+      };
+    },
+    [currentSubflowId, nodes]
+  );
+
+  const handleExportServiceBundle = useCallback(
+    async (groupId: string) => {
+      const target = resolveRootServiceTarget(groupId);
+      if (!target) {
+        toast.error("Service export is only available on root service folders.");
+        return;
+      }
+
+      try {
+        const response = await exportServiceFlowBundle({ projectPath: target.projectPath });
+        const blob = new Blob([JSON.stringify(response.bundle, null, 2)], {
+          type: "application/json",
+        });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `${target.serviceName}-service-flows.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(url);
+        toast.success(`Exported flows for ${target.serviceName}.`);
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : `Failed to export ${target.serviceName}.`
+        );
+      } finally {
+        setMenu(null);
+      }
+    },
+    [resolveRootServiceTarget]
+  );
+
+  const handleTriggerServiceImport = useCallback(
+    (groupId: string) => {
+      const target = resolveRootServiceTarget(groupId);
+      if (!target) {
+        toast.error("Service import is only available on root service folders.");
+        return;
+      }
+
+      setServiceImportTarget(target);
+      setMenu(null);
+      serviceImportInputRef.current?.click();
+    },
+    [resolveRootServiceTarget]
+  );
+
+  const handleServiceImportSelection = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null;
+      const target = serviceImportTarget;
+      event.target.value = "";
+
+      if (!file || !target) {
+        return;
+      }
+
+      try {
+        const rawText = await file.text();
+        const parsed = JSON.parse(rawText) as ServiceFlowBundle | { bundle?: ServiceFlowBundle };
+        const bundle =
+          parsed &&
+          typeof parsed === "object" &&
+          "bundle" in parsed &&
+          parsed.bundle &&
+          typeof parsed.bundle === "object"
+            ? parsed.bundle
+            : (parsed as ServiceFlowBundle);
+
+        if (
+          !bundle ||
+          bundle.kind !== "service-flow-bundle" ||
+          bundle.version !== 1 ||
+          !Array.isArray(bundle.flows)
+        ) {
+          throw new Error("Invalid service export file.");
+        }
+
+        const response = await importServiceFlowBundle({
+          projectPath: target.projectPath,
+          bundle,
+        });
+        await loadAllFlows();
+        toast.success(
+          response.message || `Imported ${response.importedFlows} flows into ${target.serviceName}.`
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : `Failed to import into ${target.serviceName}.`
+        );
+      } finally {
+        setServiceImportTarget(null);
+      }
+    },
+    [loadAllFlows, serviceImportTarget]
+  );
 
   // Context Menu Handlers
   const onNodeContextMenu = useCallback(
@@ -896,6 +1042,13 @@ export default function FlowCanvas() {
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
+      <input
+        ref={serviceImportInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={handleServiceImportSelection}
+      />
       <FlowBreadcrumb currentSubflowId={currentSubflowId} nodes={nodes} onNavigate={exitSubflow} />
 
       {/* Auto-Load / Refresh Button */}
@@ -1167,6 +1320,61 @@ export default function FlowCanvas() {
                       </div>
                       View Group JSON
                     </button>
+                    {(() => {
+                      const serviceTarget = resolveRootServiceTarget(menu.id);
+                      if (!serviceTarget) {
+                        return null;
+                      }
+
+                      return (
+                        <>
+                          <button
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item border-t border-gray-50"
+                            onClick={() => handleExportServiceBundle(menu.id)}
+                          >
+                            <div className="p-1.5 bg-emerald-100 rounded-lg group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M12 16V4m0 12l-4-4m4 4l4-4M5 20h14"
+                                />
+                              </svg>
+                            </div>
+                            Export Service Flows
+                          </button>
+                          <button
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-sky-600 hover:bg-sky-50 font-bold transition-all group/item border-t border-gray-50"
+                            onClick={() => handleTriggerServiceImport(menu.id)}
+                          >
+                            <div className="p-1.5 bg-sky-100 rounded-lg group-hover/item:bg-sky-600 group-hover/item:text-white transition-colors">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M12 8v12m0-12l4 4m-4-4l-4 4M5 4h14"
+                                />
+                              </svg>
+                            </div>
+                            Import Service Flows
+                          </button>
+                        </>
+                      );
+                    })()}
                     <button
                       className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                       onClick={() => openNodeJson(menu.id)}
