@@ -30,6 +30,14 @@ export type ActionNodeData = {
   responseMapping?: Record<string, unknown>;
   persistResponseMappingKeys?: string[];
   encryptResponseMappingKeys?: string[];
+  persistManager?: "inputManager" | "commonManager";
+  commonManagerSaveMode?: "flowSession" | "provided" | "generate";
+  commonManagerSaveSessionId?: string;
+  commonManagerSessionOutputVar?: string;
+  commonManagerFetchMode?: "session" | "search";
+  commonManagerFetchSessionId?: string;
+  commonManagerSearchField?: string;
+  commonManagerSearchValue?: string;
   routes?: ActionRoute[];
   nextNode?: string;
 };

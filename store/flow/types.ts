@@ -62,6 +62,14 @@ export type FlowNode = {
   bodyMode?: "json" | "soap" | "form";
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
+  persistManager?: "inputManager" | "commonManager";
+  commonManagerSaveMode?: "flowSession" | "provided" | "generate";
+  commonManagerSaveSessionId?: string;
+  commonManagerSessionOutputVar?: string;
+  commonManagerFetchMode?: "session" | "search";
+  commonManagerFetchSessionId?: string;
+  commonManagerSearchField?: string;
+  commonManagerSearchValue?: string;
   encryptInput?: boolean;
   responseType?: "CONTINUE" | "END";
   nextNode?: string | { routes?: FlowRoute[]; default?: string; defaultId?: string };

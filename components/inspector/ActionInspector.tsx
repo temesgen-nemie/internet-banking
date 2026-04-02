@@ -262,6 +262,21 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     return { fields, outputVars };
   }, [node.data.fields, node.data.field, node.data.outputVars, node.data.outputVar]);
 
+  const persistManager = (node.data.persistManager ?? "inputManager") as
+    | "inputManager"
+    | "commonManager";
+  const commonManagerSaveMode = (node.data.commonManagerSaveMode ?? "flowSession") as
+    | "flowSession"
+    | "provided"
+    | "generate";
+  const localDataSource = (node.data.dataSource ?? "inputManager") as
+    | "inputManager"
+    | "redis"
+    | "commonManager";
+  const commonManagerFetchMode = (node.data.commonManagerFetchMode ?? "session") as
+    | "session"
+    | "search";
+
   const updateLocalFieldPairs = React.useCallback(
     (fields: string[], outputVars: string[]) => {
       updateNodeData(node.id, {
@@ -466,7 +481,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
   React.useEffect(() => {
     const current = String(node.data.dataSource ?? "").trim();
     if (!current) {
-      updateNodeData(node.id, { dataSource: "" });
+      updateNodeData(node.id, { dataSource: "inputManager" });
     }
   }, [node.data.dataSource, node.id, updateNodeData]);
 
@@ -1445,6 +1460,12 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                 <ResponseMappingEditor
                   mappings={mappingPairs}
                   options={responseOptions}
+                  persistManager={persistManager}
+                  commonManagerSaveMode={commonManagerSaveMode}
+                  commonManagerSaveSessionId={String(node.data.commonManagerSaveSessionId ?? "")}
+                  commonManagerSessionOutputVar={String(
+                    node.data.commonManagerSessionOutputVar ?? ""
+                  )}
                   onAdd={() => {
                     const next = [
                       ...mappingPairs,
@@ -1464,6 +1485,18 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     setMappingPairs(next);
                     syncResponseMapping(next);
                   }}
+                  onPersistManagerChange={(value) =>
+                    updateNodeData(node.id, { persistManager: value })
+                  }
+                  onCommonManagerSaveModeChange={(value) =>
+                    updateNodeData(node.id, { commonManagerSaveMode: value })
+                  }
+                  onCommonManagerSaveSessionIdChange={(value) =>
+                    updateNodeData(node.id, { commonManagerSaveSessionId: value })
+                  }
+                  onCommonManagerSessionOutputVarChange={(value) =>
+                    updateNodeData(node.id, { commonManagerSessionOutputVar: value })
+                  }
                 />
               )}
 
@@ -1520,13 +1553,88 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
           <div className="space-y-4">
             <div>
               <label className="text-xs font-medium text-gray-600">Data Source</label>
-              <input
+              <select
                 className="mt-2 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
-                placeholder="source"
-                value={String(node.data.dataSource ?? "")}
+                value={localDataSource}
                 onChange={(e) => updateNodeData(node.id, { dataSource: e.target.value })}
-              />
+              >
+                <option value="inputManager">inputManager</option>
+                <option value="commonManager">commonManager</option>
+                <option value="redis">redis</option>
+              </select>
             </div>
+
+            {localDataSource === "commonManager" && (
+              <div className="grid grid-cols-2 gap-4 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Fetch Mode
+                  </label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                    value={commonManagerFetchMode}
+                    onChange={(e) =>
+                      updateNodeData(node.id, {
+                        commonManagerFetchMode: e.target.value as "session" | "search",
+                      })
+                    }
+                  >
+                    <option value="session">By session id</option>
+                    <option value="search">By field search</option>
+                  </select>
+                </div>
+                {commonManagerFetchMode === "session" ? (
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Session Id
+                    </label>
+                    <input
+                      className="mt-1 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                      placeholder="{{vars.sessionId}}"
+                      value={String(node.data.commonManagerFetchSessionId ?? "")}
+                      onChange={(e) =>
+                        updateNodeData(node.id, {
+                          commonManagerFetchSessionId: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Search Field
+                      </label>
+                      <input
+                        className="mt-1 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                        placeholder="phoneNumber"
+                        value={String(node.data.commonManagerSearchField ?? "")}
+                        onChange={(e) =>
+                          updateNodeData(node.id, {
+                            commonManagerSearchField: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Search Value
+                      </label>
+                      <input
+                        className="mt-1 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                        placeholder="{{vars.phoneNumber}}"
+                        value={String(node.data.commonManagerSearchValue ?? "")}
+                        onChange={(e) =>
+                          updateNodeData(node.id, {
+                            commonManagerSearchValue: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="pt-2 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">

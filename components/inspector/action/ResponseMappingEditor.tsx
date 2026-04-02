@@ -4,17 +4,33 @@ import { useState } from "react";
 type ResponseMappingEditorProps = {
   mappings: Array<{ id: string; key: string; value: string; persist?: boolean; encrypt?: boolean }>;
   options: string[];
+  persistManager: "inputManager" | "commonManager";
+  commonManagerSaveMode: "flowSession" | "provided" | "generate";
+  commonManagerSaveSessionId: string;
+  commonManagerSessionOutputVar: string;
   onAdd: () => void;
   onRemove: (id: string) => void;
   onUpdate: (id: string, key: string, value: string, persist: boolean, encrypt: boolean) => void;
+  onPersistManagerChange: (value: "inputManager" | "commonManager") => void;
+  onCommonManagerSaveModeChange: (value: "flowSession" | "provided" | "generate") => void;
+  onCommonManagerSaveSessionIdChange: (value: string) => void;
+  onCommonManagerSessionOutputVarChange: (value: string) => void;
 };
 
 export default function ResponseMappingEditor({
   mappings,
   options,
+  persistManager,
+  commonManagerSaveMode,
+  commonManagerSaveSessionId,
+  commonManagerSessionOutputVar,
   onAdd,
   onRemove,
   onUpdate,
+  onPersistManagerChange,
+  onCommonManagerSaveModeChange,
+  onCommonManagerSaveSessionIdChange,
+  onCommonManagerSessionOutputVarChange,
 }: ResponseMappingEditorProps) {
   const [editModes, setEditModes] = useState<Record<string, boolean>>({});
 
@@ -30,6 +46,69 @@ export default function ResponseMappingEditor({
         >
           + Add Mapping
         </button>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            Persist Manager
+          </label>
+          <select
+            className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+            value={persistManager}
+            onChange={(e) =>
+              onPersistManagerChange(e.target.value as "inputManager" | "commonManager")
+            }
+          >
+            <option value="inputManager">inputManager</option>
+            <option value="commonManager">commonManager</option>
+          </select>
+        </div>
+        {persistManager === "commonManager" && (
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Session Mode
+            </label>
+            <select
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+              value={commonManagerSaveMode}
+              onChange={(e) =>
+                onCommonManagerSaveModeChange(
+                  e.target.value as "flowSession" | "provided" | "generate"
+                )
+              }
+            >
+              <option value="flowSession">Use flow session</option>
+              <option value="provided">Use provided session</option>
+              <option value="generate">Generate session</option>
+            </select>
+          </div>
+        )}
+        {persistManager === "commonManager" && commonManagerSaveMode === "provided" && (
+          <div className="col-span-2">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Session Id
+            </label>
+            <input
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+              placeholder="{{vars.sessionId}}"
+              value={commonManagerSaveSessionId}
+              onChange={(e) => onCommonManagerSaveSessionIdChange(e.target.value)}
+            />
+          </div>
+        )}
+        {persistManager === "commonManager" && (
+          <div className="col-span-2">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Session Output Var
+            </label>
+            <input
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+              placeholder="commonSessionId"
+              value={commonManagerSessionOutputVar}
+              onChange={(e) => onCommonManagerSessionOutputVarChange(e.target.value)}
+            />
+          </div>
+        )}
       </div>
       <div className="mt-3 space-y-2">
         {mappings.length === 0 && (
