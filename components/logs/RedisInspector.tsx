@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getRedisEntries,
   getRedisIndexes,
@@ -29,6 +29,11 @@ export default function RedisInspector() {
   const [states, setStates] = useState<Record<number, RedisState>>({});
   const [loadingIndexes, setLoadingIndexes] = useState(false);
   const [indexesError, setIndexesError] = useState<string | null>(null);
+  const statesRef = useRef<Record<number, RedisState>>({});
+
+  useEffect(() => {
+    statesRef.current = states;
+  }, [states]);
 
   const loadIndexes = useCallback(async () => {
     setLoadingIndexes(true);
@@ -85,7 +90,7 @@ export default function RedisInspector() {
     }));
 
     try {
-      const state = states[db] ?? {
+      const state = statesRef.current[db] ?? {
         entries: [],
         cursor: "0",
         hasMore: false,
@@ -132,15 +137,7 @@ export default function RedisInspector() {
         },
       }));
     }
-  }, [states]);
-
-  useEffect(() => {
-    if (activeDb === null) return;
-    const state = states[activeDb];
-    if (!state || (state.entries.length === 0 && !state.loading && !state.error)) {
-      void loadEntries(activeDb, false);
-    }
-  }, [activeDb, loadEntries, states]);
+  }, []);
 
   const activeState = activeDb !== null ? states[activeDb] : undefined;
   const activeIndex = useMemo(
