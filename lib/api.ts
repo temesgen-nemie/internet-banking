@@ -821,4 +821,67 @@ export const getPermissionLogs = async (params: {
   }
 };
 
+export type RedisIndexInfo = {
+  name: string;
+  db: number;
+};
+
+export type RedisEntry = {
+  key: string;
+  type: string;
+  ttl: number;
+  value: unknown;
+};
+
+export const getRedisIndexes = async () => {
+  try {
+    const response = await api.get("/admin/redis/indexes");
+    return response.data as { data: RedisIndexInfo[] };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      throw new Error(
+        axiosError.response?.data?.error ||
+          `Failed to fetch redis indexes (${axiosError.response?.status})`
+      );
+    } else if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error("An unknown error occurred");
+    }
+  }
+};
+
+export const getRedisEntries = async (params: {
+  db: number;
+  cursor?: string;
+  pattern?: string;
+  limit?: number;
+}) => {
+  try {
+    const response = await api.get("/admin/redis/entries", { params });
+    return response.data as {
+      data: {
+        db: number;
+        cursor: string;
+        hasMore: boolean;
+        pattern: string;
+        entries: RedisEntry[];
+      };
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      throw new Error(
+        axiosError.response?.data?.error ||
+          `Failed to fetch redis entries (${axiosError.response?.status})`
+      );
+    } else if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error("An unknown error occurred");
+    }
+  }
+};
+
 export default api;

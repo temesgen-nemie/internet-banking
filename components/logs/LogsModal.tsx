@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import LogsTable from "@/components/logs/LogsTable";
+import RedisInspector from "@/components/logs/RedisInspector";
 
 type LogsModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-type TabKey = "fetch" | "live";
+type TabKey = "fetch" | "live" | "redis";
 
 type LogsModalContentProps = {
   onOpenChange: (open: boolean) => void;
@@ -30,10 +31,10 @@ const resolveLogsWebSocketUrl = () => {
     return configured;
   }
   if (typeof window === "undefined") {
-    return "ws://localhost:5000/admin/logs/stream";
+    return "ws://localhost:5000/v1/ussdpush/api/admin/logs/stream";
   }
   const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${wsProtocol}://localhost:5000/admin/logs/stream`;
+  return `${wsProtocol}://localhost:5000/v1/ussdpush/api/admin/logs/stream`;
 };
 
 function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
@@ -241,6 +242,17 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
             >
               Live Logs
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("redis")}
+              className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "redis"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Redis
+            </button>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
@@ -285,7 +297,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
         <div className="flex-1 overflow-hidden p-6">
           {activeTab === "fetch" ? (
             <LogsTable />
-          ) : (
+          ) : activeTab === "live" ? (
             <div className="h-full overflow-auto">
               {isTerminalMode ? (
                 <div className="rounded-2xl border border-border bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
@@ -319,6 +331,8 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
                 <LogsAccordion logs={liveLogs} isLoading={!isLiveConnected} />
               )}
             </div>
+          ) : (
+            <RedisInspector />
           )}
         </div>
 
