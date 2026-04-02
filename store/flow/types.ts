@@ -62,6 +62,7 @@ export type FlowNode = {
   bodyMode?: "json" | "soap" | "form";
   responseMapping?: Record<string, unknown>;
   persistResponseMapping?: boolean;
+  commonManagerResponseMappingKeys?: string[];
   persistManager?: "inputManager" | "commonManager";
   commonManagerSaveMode?: "flowSession" | "provided" | "generate";
   commonManagerSaveSessionId?: string;

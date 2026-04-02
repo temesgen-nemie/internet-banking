@@ -86,16 +86,25 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     }));
   });
   const [mappingPairs, setMappingPairs] = React.useState<
-    Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>
+    Array<{
+      id: string;
+      key: string;
+      value: string;
+      persist: boolean;
+      common: boolean;
+      encrypt: boolean;
+    }>
   >(() => {
     const mapping = node.data.responseMapping || {};
     const persisted = new Set(node.data.persistResponseMappingKeys || []);
+    const commonManaged = new Set(node.data.commonManagerResponseMappingKeys || []);
     const encrypted = new Set(node.data.encryptResponseMappingKeys || []);
     return Object.entries(mapping).map(([key, value]) => ({
       id: Math.random().toString(36).substr(2, 9),
       key,
       value: String(value),
       persist: persisted.has(key),
+      common: commonManaged.has(key),
       encrypt: encrypted.has(key),
     }));
   });
@@ -262,13 +271,6 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     return { fields, outputVars };
   }, [node.data.fields, node.data.field, node.data.outputVars, node.data.outputVar]);
 
-  const persistManager = (node.data.persistManager ?? "inputManager") as
-    | "inputManager"
-    | "commonManager";
-  const commonManagerSaveMode = (node.data.commonManagerSaveMode ?? "flowSession") as
-    | "flowSession"
-    | "provided"
-    | "generate";
   const localDataSource = (node.data.dataSource ?? "inputManager") as
     | "inputManager"
     | "redis"
@@ -535,22 +537,33 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
 
   const syncResponseMapping = React.useCallback(
     (
-      pairs: Array<{ id: string; key: string; value: string; persist: boolean; encrypt: boolean }>
+      pairs: Array<{
+        id: string;
+        key: string;
+        value: string;
+        persist: boolean;
+        common: boolean;
+        encrypt: boolean;
+      }>
     ) => {
       const mapping: Record<string, string> = {};
       const persistKeys: string[] = [];
+      const commonManagerKeys: string[] = [];
       const encryptKeys: string[] = [];
       pairs.forEach((pair) => {
         if (pair.key.trim()) {
           mapping[pair.key] = pair.value;
           if (pair.persist) persistKeys.push(pair.key.trim());
+          if (pair.common) commonManagerKeys.push(pair.key.trim());
           if (pair.encrypt) encryptKeys.push(pair.key.trim());
         }
       });
       updateNodeData(node.id, {
         responseMapping: mapping,
         persistResponseMappingKeys: persistKeys,
+        commonManagerResponseMappingKeys: commonManagerKeys,
         encryptResponseMappingKeys: encryptKeys,
+        persistManager: commonManagerKeys.length > 0 ? "commonManager" : "inputManager",
       });
     },
     [node.id, updateNodeData]
@@ -1460,16 +1473,18 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                 <ResponseMappingEditor
                   mappings={mappingPairs}
                   options={responseOptions}
-                  persistManager={persistManager}
-                  commonManagerSaveMode={commonManagerSaveMode}
                   commonManagerSaveSessionId={String(node.data.commonManagerSaveSessionId ?? "")}
-                  commonManagerSessionOutputVar={String(
-                    node.data.commonManagerSessionOutputVar ?? ""
-                  )}
                   onAdd={() => {
                     const next = [
                       ...mappingPairs,
-                      { id: generateId(), key: "", value: "", persist: false, encrypt: false },
+                      {
+                        id: generateId(),
+                        key: "",
+                        value: "",
+                        persist: false,
+                        common: false,
+                        encrypt: false,
+                      },
                     ];
                     setMappingPairs(next);
                   }}
@@ -1478,24 +1493,15 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     setMappingPairs(next);
                     syncResponseMapping(next);
                   }}
-                  onUpdate={(id, key, value, persist, encrypt) => {
+                  onUpdate={(id, key, value, persist, common, encrypt) => {
                     const next = mappingPairs.map((pair) =>
-                      pair.id === id ? { ...pair, key, value, persist, encrypt } : pair
+                      pair.id === id ? { ...pair, key, value, persist, common, encrypt } : pair
                     );
                     setMappingPairs(next);
                     syncResponseMapping(next);
                   }}
-                  onPersistManagerChange={(value) =>
-                    updateNodeData(node.id, { persistManager: value })
-                  }
-                  onCommonManagerSaveModeChange={(value) =>
-                    updateNodeData(node.id, { commonManagerSaveMode: value })
-                  }
                   onCommonManagerSaveSessionIdChange={(value) =>
                     updateNodeData(node.id, { commonManagerSaveSessionId: value })
-                  }
-                  onCommonManagerSessionOutputVarChange={(value) =>
-                    updateNodeData(node.id, { commonManagerSessionOutputVar: value })
                   }
                 />
               )}

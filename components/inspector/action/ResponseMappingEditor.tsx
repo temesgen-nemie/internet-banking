@@ -2,35 +2,37 @@
 import { useState } from "react";
 
 type ResponseMappingEditorProps = {
-  mappings: Array<{ id: string; key: string; value: string; persist?: boolean; encrypt?: boolean }>;
+  mappings: Array<{
+    id: string;
+    key: string;
+    value: string;
+    persist?: boolean;
+    common?: boolean;
+    encrypt?: boolean;
+  }>;
   options: string[];
-  persistManager: "inputManager" | "commonManager";
-  commonManagerSaveMode: "flowSession" | "provided" | "generate";
   commonManagerSaveSessionId: string;
-  commonManagerSessionOutputVar: string;
   onAdd: () => void;
   onRemove: (id: string) => void;
-  onUpdate: (id: string, key: string, value: string, persist: boolean, encrypt: boolean) => void;
-  onPersistManagerChange: (value: "inputManager" | "commonManager") => void;
-  onCommonManagerSaveModeChange: (value: "flowSession" | "provided" | "generate") => void;
+  onUpdate: (
+    id: string,
+    key: string,
+    value: string,
+    persist: boolean,
+    common: boolean,
+    encrypt: boolean
+  ) => void;
   onCommonManagerSaveSessionIdChange: (value: string) => void;
-  onCommonManagerSessionOutputVarChange: (value: string) => void;
 };
 
 export default function ResponseMappingEditor({
   mappings,
   options,
-  persistManager,
-  commonManagerSaveMode,
   commonManagerSaveSessionId,
-  commonManagerSessionOutputVar,
   onAdd,
   onRemove,
   onUpdate,
-  onPersistManagerChange,
-  onCommonManagerSaveModeChange,
   onCommonManagerSaveSessionIdChange,
-  onCommonManagerSessionOutputVarChange,
 }: ResponseMappingEditorProps) {
   const [editModes, setEditModes] = useState<Record<string, boolean>>({});
 
@@ -47,68 +49,16 @@ export default function ResponseMappingEditor({
           + Add Mapping
         </button>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
-        <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Persist Manager
-          </label>
-          <select
-            className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-            value={persistManager}
-            onChange={(e) =>
-              onPersistManagerChange(e.target.value as "inputManager" | "commonManager")
-            }
-          >
-            <option value="inputManager">inputManager</option>
-            <option value="commonManager">commonManager</option>
-          </select>
-        </div>
-        {persistManager === "commonManager" && (
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Session Mode
-            </label>
-            <select
-              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-              value={commonManagerSaveMode}
-              onChange={(e) =>
-                onCommonManagerSaveModeChange(
-                  e.target.value as "flowSession" | "provided" | "generate"
-                )
-              }
-            >
-              <option value="flowSession">Use flow session</option>
-              <option value="provided">Use provided session</option>
-              <option value="generate">Generate session</option>
-            </select>
-          </div>
-        )}
-        {persistManager === "commonManager" && commonManagerSaveMode === "provided" && (
-          <div className="col-span-2">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Session Id
-            </label>
-            <input
-              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-              placeholder="{{vars.sessionId}}"
-              value={commonManagerSaveSessionId}
-              onChange={(e) => onCommonManagerSaveSessionIdChange(e.target.value)}
-            />
-          </div>
-        )}
-        {persistManager === "commonManager" && (
-          <div className="col-span-2">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Session Output Var
-            </label>
-            <input
-              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
-              placeholder="commonSessionId"
-              value={commonManagerSessionOutputVar}
-              onChange={(e) => onCommonManagerSessionOutputVarChange(e.target.value)}
-            />
-          </div>
-        )}
+      <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          Common Manager Session Id
+        </label>
+        <input
+          className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+          placeholder="Leave empty to generate, or use {{vars.sessionId}}"
+          value={commonManagerSaveSessionId}
+          onChange={(e) => onCommonManagerSaveSessionIdChange(e.target.value)}
+        />
       </div>
       <div className="mt-3 space-y-2">
         {mappings.length === 0 && (
@@ -126,16 +76,23 @@ export default function ResponseMappingEditor({
           return (
             <div
               key={mapping.id}
-              className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-center"
+              className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-2 items-center"
             >
               <input
                 className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
                 placeholder="Field name"
                 value={mapping.key}
-                onChange={(e) =>
-                  onUpdate(mapping.id, e.target.value, mapping.value, !!mapping.persist, !!mapping.encrypt)
-                }
-              />
+                  onChange={(e) =>
+                    onUpdate(
+                      mapping.id,
+                      e.target.value,
+                      mapping.value,
+                      !!mapping.persist,
+                      !!mapping.common,
+                      !!mapping.encrypt
+                    )
+                  }
+                />
               {editModes[mapping.id] ? (
                 <div className="relative flex items-center">
                   <input
@@ -148,6 +105,7 @@ export default function ResponseMappingEditor({
                         mapping.key,
                         e.target.value,
                         !!mapping.persist,
+                        !!mapping.common,
                         !!mapping.encrypt
                       )
                     }
@@ -195,6 +153,7 @@ export default function ResponseMappingEditor({
                         mapping.key,
                         e.target.value,
                         !!mapping.persist,
+                        !!mapping.common,
                         !!mapping.encrypt
                       );
                     }
@@ -222,18 +181,50 @@ export default function ResponseMappingEditor({
                   type="checkbox"
                   checked={!!mapping.persist}
                   onChange={(e) =>
-                    onUpdate(mapping.id, mapping.key, mapping.value, e.target.checked, !!mapping.encrypt)
+                    onUpdate(
+                      mapping.id,
+                      mapping.key,
+                      mapping.value,
+                      e.target.checked,
+                      !!mapping.common,
+                      !!mapping.encrypt
+                    )
                   }
                   className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="text-[10px] text-gray-400 font-medium uppercase">Persist</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-1" title="Persist this mapping to common manager">
+                <input
+                  type="checkbox"
+                  checked={!!mapping.common}
+                  onChange={(e) =>
+                    onUpdate(
+                      mapping.id,
+                      mapping.key,
+                      mapping.value,
+                      !!mapping.persist,
+                      e.target.checked,
+                      !!mapping.encrypt
+                    )
+                  }
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-[10px] text-gray-400 font-medium uppercase">Common</span>
               </div>
               <div className="flex items-center gap-1.5 px-1" title="Encrypt this mapping in local storage">
                 <input
                   type="checkbox"
                   checked={!!mapping.encrypt}
                   onChange={(e) =>
-                    onUpdate(mapping.id, mapping.key, mapping.value, !!mapping.persist, e.target.checked)
+                    onUpdate(
+                      mapping.id,
+                      mapping.key,
+                      mapping.value,
+                      !!mapping.persist,
+                      !!mapping.common,
+                      e.target.checked
+                    )
                   }
                   className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
