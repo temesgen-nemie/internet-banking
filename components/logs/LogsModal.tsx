@@ -24,6 +24,18 @@ const getInitialSize = () => {
   return { width, height };
 };
 
+const resolveLogsWebSocketUrl = () => {
+  const configured = process.env.NEXT_PUBLIC_LOGS_WS_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+  if (typeof window === "undefined") {
+    return "ws://localhost:5000/admin/logs/stream";
+  }
+  const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${wsProtocol}://localhost:5000/admin/logs/stream`;
+};
+
 function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("fetch");
   const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
@@ -45,10 +57,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const socket = new WebSocket(
-      `${wsProtocol}://localhost:5000/admin/logs/stream`
-    );
+    const socket = new WebSocket(resolveLogsWebSocketUrl());
 
     socket.addEventListener("open", () => {
       setIsLiveConnected(true);
