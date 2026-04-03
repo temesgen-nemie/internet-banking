@@ -22,20 +22,35 @@ const loginSchema = z.object({
 
 export default function LoginForm() {
   const router = useRouter();
-  const { loginUser, isAuthenticated, isLoading, error, clearError } =
+  const { loginUser, isAuthenticated, isLoading, error, clearError, fetchMe } =
     useAuthStore();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [hasCheckedSession, setHasCheckedSession] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     username?: string;
     password?: string;
   }>({});
 
   useEffect(() => {
-    if (isAuthenticated) {
+    let isMounted = true;
+
+    void fetchMe().finally(() => {
+      if (isMounted) {
+        setHasCheckedSession(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchMe]);
+
+  useEffect(() => {
+    if (hasCheckedSession && isAuthenticated) {
       router.replace("/");
     }
-  }, [isAuthenticated, router]);
+  }, [hasCheckedSession, isAuthenticated, router]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -122,10 +137,14 @@ export default function LoginForm() {
 
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !hasCheckedSession}
           className="h-11 w-full rounded-2xl bg-linear-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-400 hover:via-violet-400 hover:to-fuchsia-400 cursor-pointer"
         >
-          {isLoading ? "Signing in..." : "Sign in"}
+          {!hasCheckedSession
+            ? "Checking session..."
+            : isLoading
+              ? "Signing in..."
+              : "Sign in"}
         </Button>
       </form>
     </div>
