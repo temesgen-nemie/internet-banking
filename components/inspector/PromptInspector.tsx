@@ -1113,6 +1113,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
           </div>
 
           <div className="grid grid-cols-1 gap-4">
+            {/*
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
                 Response Type
@@ -1126,6 +1127,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                 <option value="END">END</option>
               </select>
             </div>
+            */}
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
                 Response Status Code

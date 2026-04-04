@@ -163,20 +163,20 @@ export default function RedisInspector() {
         </button>
       </div>
 
-      <div className="grid h-[calc(100%-72px)] grid-cols-[220px_1fr] overflow-hidden">
-        <div className="border-r border-border bg-muted/20 p-3">
+      <div className="grid h-[calc(100%-72px)] grid-cols-1 overflow-hidden md:grid-cols-[220px_1fr]">
+        <div className="border-b border-border bg-muted/20 p-3 md:border-b-0 md:border-r">
           {loadingIndexes ? (
             <div className="text-xs text-muted-foreground">Loading indexes...</div>
           ) : indexesError ? (
             <div className="text-xs text-red-500">{indexesError}</div>
           ) : (
-            <div className="space-y-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-2 md:overflow-visible md:pb-0">
               {indexes.map((index) => (
                 <button
                   key={index.db}
                   type="button"
                   onClick={() => setActiveDb(index.db)}
-                  className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                  className={`shrink-0 rounded-xl border px-3 py-2 text-left transition md:w-full ${
                     activeDb === index.db
                       ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                       : "border-border bg-background text-foreground hover:border-indigo-200 hover:bg-background/80"
@@ -190,10 +190,10 @@ export default function RedisInspector() {
           )}
         </div>
 
-        <div className="flex h-full flex-col overflow-hidden p-4">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden p-3 md:p-4">
           {activeIndex && activeState ? (
             <>
-              <div className="mb-4 flex items-end gap-3">
+              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end">
                 <div className="min-w-0 flex-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Match Pattern
@@ -217,7 +217,7 @@ export default function RedisInspector() {
                 <button
                   type="button"
                   onClick={() => void loadEntries(activeIndex.db, false)}
-                  className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+                  className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 md:w-auto"
                 >
                   Refresh DB {activeIndex.db}
                 </button>
