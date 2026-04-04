@@ -56,6 +56,17 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   });
   const modalRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const updateViewportMode = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    updateViewportMode();
+    window.addEventListener("resize", updateViewportMode);
+    return () => window.removeEventListener("resize", updateViewportMode);
+  }, []);
 
   useEffect(() => {
     const socket = new WebSocket(resolveLogsWebSocketUrl());
@@ -115,7 +126,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
       setIsResizing(false);
     };
 
-    if (isDragging || isResizing) {
+    if ((isDragging || isResizing) && !isMobile) {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
       return () => {
@@ -123,7 +134,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
         window.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [dragStart, isDragging, isResizing, resizeStart]);
+  }, [dragStart, isDragging, isMobile, isResizing, resizeStart]);
 
   useEffect(() => {
     if (activeTab !== "live" || !isTerminalMode) return;
@@ -174,26 +185,38 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
     }
   };
 
-  const modalStyle: CSSProperties = {
-    position: "fixed",
-    left: `calc(50% + ${offset.x}px + clamp(80px, 12vw, 300px))`,
-    top: `calc(50% + ${offset.y}px + clamp(450px, 18vh, 450px))`,
-    transform: "translate(-50%, -50%)",
-    width: size.width > 0 ? size.width : undefined,
-    height: size.height > 0 ? size.height : undefined,
-    maxHeight: "90vh",
-    maxWidth: "95vw",
-  };
+  const modalStyle: CSSProperties = isMobile
+    ? {
+        position: "fixed",
+        left: "8px",
+        top: "8px",
+        width: "calc(100vw - 16px)",
+        height: "calc(100dvh - 16px)",
+        maxHeight: "calc(100dvh - 16px)",
+        maxWidth: "calc(100vw - 16px)",
+        transform: "none",
+      }
+    : {
+        position: "fixed",
+        left: `calc(50% + ${offset.x}px + clamp(80px, 12vw, 300px))`,
+        top: `calc(50% + ${offset.y}px + clamp(450px, 18vh, 450px))`,
+        transform: "translate(-50%, -50%)",
+        width: size.width > 0 ? size.width : undefined,
+        height: size.height > 0 ? size.height : undefined,
+        maxHeight: "90vh",
+        maxWidth: "95vw",
+      };
 
   return (
     <div className="fixed inset-0 z-100000 pointer-events-none">
       <div
         ref={modalRef}
         style={modalStyle}
-        className="rounded-xl bg-card text-card-foreground shadow-2xl ring-1 ring-black/5 flex flex-col overflow-hidden pointer-events-auto transition-none"
+        className="rounded-xl bg-card text-card-foreground shadow-2xl ring-1 ring-black/5 flex h-full min-h-0 flex-col overflow-hidden pointer-events-auto transition-none"
       >
         <div
           onMouseDown={(event) => {
+            if (isMobile) return;
             if ((event.target as HTMLElement).closest("button")) return;
             setDragStart({
               x: event.clientX - offset.x,
@@ -201,29 +224,80 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
             });
             setIsDragging(true);
           }}
-          className="relative flex items-start justify-between gap-4 border-b border-border bg-card/95 px-6 py-4 cursor-grab active:cursor-grabbing"
+          className={`relative shrink-0 border-b border-border bg-card/95 px-4 py-4 md:px-6 ${
+            isMobile
+              ? "flex flex-col gap-4"
+              : "flex items-start justify-between gap-4 cursor-grab active:cursor-grabbing"
+          }`}
         >
-          <div>
-            <div className="text-lg font-bold text-foreground">USSD Logs</div>
-            {activeTab === "live" ? (
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    isLiveConnected
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
-                      : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
-                  }`}
+          <div className={`min-w-0 ${isMobile ? "flex items-start justify-between gap-3" : ""}`}>
+            <div className="min-w-0">
+              <div className="text-lg font-bold text-foreground">USSD Logs</div>
+              {activeTab === "live" ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      isLiveConnected
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
+                        : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
+                    }`}
+                  >
+                    {isLiveConnected ? "Connected" : "Disconnected"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {isMobile ? (
+              <div className="flex items-center gap-2">
+                {activeTab === "live" ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsTerminalMode((prev) => !prev)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      isTerminalMode
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Terminal Mode
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className="shrink-0 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                  aria-label="Close logs"
                 >
-                  {isLiveConnected ? "Connected" : "Disconnected"}
-                </span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
               </div>
             ) : null}
           </div>
-          <div className="pointer-events-none absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2">
+          <div
+            className={`flex flex-wrap items-center gap-2 ${
+              isMobile
+                ? ""
+                : "pointer-events-none absolute left-1/2 top-4 -translate-x-1/2"
+            }`}
+          >
             <button
               type="button"
               onClick={() => setActiveTab("fetch")}
-              className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 activeTab === "fetch"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -254,7 +328,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
               Redis
             </button>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className={`flex gap-2 ${isMobile ? "hidden" : "flex-col items-end"}`}>
             <div className="flex items-center gap-2">
               {activeTab === "live" ? (
                 <button
@@ -294,7 +368,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 md:overflow-hidden md:p-6">
           {activeTab === "fetch" ? (
             <LogsTable />
           ) : activeTab === "live" ? (
@@ -306,7 +380,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
                   </div>
                   <div
                     ref={terminalRef}
-                    className="max-h-[60vh] overflow-auto px-4 py-3 font-mono text-[11px] leading-5 text-slate-900 dark:text-slate-100"
+                    className="max-h-[65vh] overflow-auto px-3 py-3 font-mono text-[11px] leading-5 text-slate-900 md:px-4 dark:text-slate-100"
                   >
                     {liveRaw.length === 0 ? (
                       <div className="text-slate-500 dark:text-slate-400">
@@ -336,21 +410,23 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
           )}
         </div>
 
-        <div
-          onMouseDown={(event) => {
-            event.stopPropagation();
-            setResizeStart({
-              x: event.clientX,
-              y: event.clientY,
-              width: modalRef.current?.offsetWidth || size.width,
-              height: modalRef.current?.offsetHeight || size.height,
-            });
-            setIsResizing(true);
-          }}
-          className="absolute bottom-2 right-2 h-4 w-4 cursor-nwse-resize"
-        >
-          <div className="h-full w-full border-b-2 border-r-2 border-muted-foreground/40" />
-        </div>
+        {!isMobile ? (
+          <div
+            onMouseDown={(event) => {
+              event.stopPropagation();
+              setResizeStart({
+                x: event.clientX,
+                y: event.clientY,
+                width: modalRef.current?.offsetWidth || size.width,
+                height: modalRef.current?.offsetHeight || size.height,
+              });
+              setIsResizing(true);
+            }}
+            className="absolute bottom-2 right-2 h-4 w-4 cursor-nwse-resize"
+          >
+            <div className="h-full w-full border-b-2 border-r-2 border-muted-foreground/40" />
+          </div>
+        ) : null}
       </div>
     </div>
   );

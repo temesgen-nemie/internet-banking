@@ -136,8 +136,8 @@ const durationStyle = (value: unknown) => {
 export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
   return (
     <div className="rounded-2xl border border-border bg-slate-50/80 text-card-foreground shadow-sm dark:bg-slate-900/40">
-      <div className="min-w-225">
-        <div className="grid grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 border-b border-border px-4 py-3 text-xs font-medium uppercase text-left bg-linear-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur dark:from-slate-800 dark:via-slate-700 dark:to-slate-700 dark:text-slate-100 dark:shadow-slate-900/40">
+      <div className="overflow-x-auto">
+        <div className="hidden min-w-[730px] grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 border-b border-border px-4 py-3 text-xs font-medium uppercase text-left bg-linear-to-r from-indigo-500/80 via-purple-500/80 to-violet-500/80 text-white/90 shadow-sm shadow-indigo-200/30 backdrop-blur md:grid dark:from-slate-800 dark:via-slate-700 dark:to-slate-700 dark:text-slate-100 dark:shadow-slate-900/40">
           <div>Time</div>
           <div>Level</div>
           <div>Method</div>
@@ -205,50 +205,91 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
               return (
                 <AccordionItem key={`${log.timestamp}-${index}`} value={`${index}`}>
                   <AccordionTrigger className="px-4 py-0 hover:no-underline cursor-pointer">
-                    <div className="grid w-full grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 py-3 text-sm text-foreground">
-                      <div className="font-medium">{formatTime(log.timestamp)}</div>
-                      <div className="uppercase text-muted-foreground">
-                        {log.level ?? "--"}
+                    <div className="w-full py-3 text-sm text-foreground">
+                      <div className="flex flex-col gap-3 md:hidden">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-medium">{log.path ?? "--"}</div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {formatTimestamp(log.timestamp)}
+                            </div>
+                          </div>
+                          <span
+                            className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle(
+                              status
+                            )}`}
+                          >
+                            {status}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${methodStyle(
+                              log.method
+                            )}`}
+                          >
+                            {log.method ?? "--"}
+                          </span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground uppercase">
+                            {log.level ?? "--"}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${durationStyle(
+                              log.durationMs
+                            )}`}
+                          >
+                            {duration}
+                          </span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {ip}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${methodStyle(
-                            log.method
-                          )}`}
-                        >
-                          {log.method ?? "--"}
-                        </span>
+                      <div className="hidden w-full min-w-[730px] grid-cols-[120px_90px_90px_1fr_90px_90px_160px] gap-2 md:grid">
+                        <div className="font-medium">{formatTime(log.timestamp)}</div>
+                        <div className="uppercase text-muted-foreground">
+                          {log.level ?? "--"}
+                        </div>
+                        <div>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${methodStyle(
+                              log.method
+                            )}`}
+                          >
+                            {log.method ?? "--"}
+                          </span>
+                        </div>
+                        <div className="truncate text-muted-foreground">
+                          {log.path ?? "--"}
+                        </div>
+                        <div>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle(
+                              status
+                            )}`}
+                          >
+                            {status}
+                          </span>
+                        </div>
+                        <div>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${durationStyle(
+                              log.durationMs
+                            )}`}
+                          >
+                            {duration}
+                          </span>
+                        </div>
+                        <div>{ip}</div>
                       </div>
-                      <div className="truncate text-muted-foreground">
-                        {log.path ?? "--"}
-                      </div>
-                      <div>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle(
-                            status
-                          )}`}
-                        >
-                          {status}
-                        </span>
-                      </div>
-                      <div>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${durationStyle(
-                            log.durationMs
-                          )}`}
-                        >
-                          {duration}
-                        </span>
-                      </div>
-                      <div>{ip}</div>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-4">
-                    <div className="grid gap-3 md:grid-cols-2">
+                  <AccordionContent className="overflow-hidden px-4">
+                    <div className="grid min-w-0 gap-3 md:grid-cols-2">
                       {details.map(([label, value]) => (
                         <div
                           key={label}
-                          className="rounded-lg border border-border bg-slate-100/70 p-3 dark:bg-slate-800/50"
+                          className="min-w-0 rounded-lg border border-border bg-slate-100/70 p-3 dark:bg-slate-800/50"
                         >
                           <div className="text-[11px] font-semibold uppercase text-muted-foreground">
                             {label}
@@ -285,7 +326,7 @@ export default function LogsAccordion({ logs, isLoading }: LogsAccordionProps) {
                             </div>
                           ) : (
                             <pre
-                              className={`mt-2 whitespace-pre-wrap wrap-break-word text-xs text-foreground ${
+                              className={`mt-2 min-w-0 whitespace-pre-wrap break-words text-xs text-foreground ${
                                 ["Request", "Response", "Device Info"].includes(label)
                                   ? "max-h-56 overflow-auto"
                                   : ""

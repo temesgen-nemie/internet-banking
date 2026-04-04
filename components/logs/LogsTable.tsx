@@ -88,7 +88,7 @@ export default function LogsTable() {
   }, [fetchLogs]);
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4 md:h-full">
       <LogsFilters
         fromDate={fromDate}
         toDate={toDate}
@@ -106,7 +106,7 @@ export default function LogsTable() {
         onRefresh={fetchLogs}
       />
       {error && <div className="text-sm text-destructive">{error}</div>}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="min-h-[240px] overflow-visible md:flex-1 md:min-h-0 md:overflow-auto">
         {isLoading && logs.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 text-sm text-muted-foreground">
             Loading logs...
