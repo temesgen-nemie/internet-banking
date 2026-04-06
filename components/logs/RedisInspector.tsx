@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  deleteRedisEntry,
   getRedisEntries,
   getRedisIndexes,
   type RedisEntry,
@@ -29,6 +30,7 @@ export default function RedisInspector() {
   const [states, setStates] = useState<Record<number, RedisState>>({});
   const [loadingIndexes, setLoadingIndexes] = useState(false);
   const [indexesError, setIndexesError] = useState<string | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const statesRef = useRef<Record<number, RedisState>>({});
 
   useEffect(() => {
@@ -139,6 +141,42 @@ export default function RedisInspector() {
     }
   }, []);
 
+  const handleDeleteEntry = useCallback(
+    async (db: number, key: string) => {
+      const confirmed =
+        typeof window === "undefined"
+          ? true
+          : window.confirm(`Delete Redis key "${key}" from DB ${db}?`);
+      if (!confirmed) {
+        return;
+      }
+
+      setDeletingKey(`${db}:${key}`);
+      try {
+        await deleteRedisEntry({ db, key });
+        await loadEntries(db, false);
+      } catch (error) {
+        setStates((current) => ({
+          ...current,
+          [db]: {
+            ...(current[db] ?? {
+              entries: [],
+              cursor: "0",
+              hasMore: false,
+              loading: false,
+              error: null,
+              pattern: "*",
+            }),
+            error: error instanceof Error ? error.message : "Failed to delete redis entry.",
+          },
+        }));
+      } finally {
+        setDeletingKey(null);
+      }
+    },
+    [loadEntries]
+  );
+
   const activeState = activeDb !== null ? states[activeDb] : undefined;
   const activeIndex = useMemo(
     () => indexes.find((entry) => entry.db === activeDb) ?? null,
@@ -156,7 +194,12 @@ export default function RedisInspector() {
         </div>
         <button
           type="button"
-          onClick={() => void loadIndexes()}
+          onClick={async () => {
+            await loadIndexes();
+            if (activeDb !== null) {
+              await loadEntries(activeDb, false);
+            }
+          }}
           className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500"
         >
           Refresh Indexes
@@ -240,16 +283,26 @@ export default function RedisInspector() {
                   <div className="divide-y divide-border">
                     {activeState.entries.map((entry) => (
                       <div key={`${entry.key}-${entry.type}`} className="p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <code className="rounded bg-muted px-2 py-1 text-xs text-foreground">
-                            {entry.key}
-                          </code>
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                            {entry.type}
-                          </span>
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                            TTL {entry.ttl < 0 ? "none" : entry.ttl}
-                          </span>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <code className="rounded bg-muted px-2 py-1 text-xs text-foreground">
+                              {entry.key}
+                            </code>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                              {entry.type}
+                            </span>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                              TTL {entry.ttl < 0 ? "none" : entry.ttl}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteEntry(activeIndex.db, entry.key)}
+                            disabled={deletingKey === `${activeIndex.db}:${entry.key}`}
+                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingKey === `${activeIndex.db}:${entry.key}` ? "Deleting..." : "Delete"}
+                          </button>
                         </div>
                         <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/70 bg-slate-50 p-3 font-mono text-[11px] leading-5 text-slate-900">
                           {formatValue(entry.value)}

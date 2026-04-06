@@ -271,7 +271,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     return { fields, outputVars };
   }, [node.data.fields, node.data.field, node.data.outputVars, node.data.outputVar]);
 
-  const localDataSource = (node.data.dataSource ?? "inputManager") as
+  const localDataSource = (node.data.dataSource || "inputManager") as
     | "inputManager"
     | "redis"
     | "commonManager";
@@ -479,13 +479,6 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     const query = fieldSearchQuery.toLowerCase();
     return sorted.filter((f) => f.toLowerCase().includes(query));
   }, [nodes, node.id, fieldSearchQuery]);
-
-  React.useEffect(() => {
-    const current = String(node.data.dataSource ?? "").trim();
-    if (!current) {
-      updateNodeData(node.id, { dataSource: "inputManager" });
-    }
-  }, [node.data.dataSource, node.id, updateNodeData]);
 
   React.useEffect(() => {
     const requestSource = String(node.data.requestSource ?? "");
@@ -1023,7 +1016,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
               disconnectWebSocket("Switched to API mode");
             }
             setSourceMode("api");
-            updateNodeData(node.id, { requestSource: "api" });
+            updateNodeData(node.id, { requestSource: "api", dataSource: "" });
           }}
         >
           From API
@@ -1039,7 +1032,10 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
               disconnectWebSocket("Switched to Local Storage mode");
             }
             setSourceMode("local");
-            updateNodeData(node.id, { requestSource: "local" });
+            updateNodeData(node.id, {
+              requestSource: "local",
+              dataSource: String(node.data.dataSource ?? "").trim() || "inputManager",
+            });
           }}
         >
           From Local Storage
@@ -1052,7 +1048,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
           }`}
           onClick={() => {
             setSourceMode("ws");
-            updateNodeData(node.id, { requestSource: "ws" });
+            updateNodeData(node.id, { requestSource: "ws", dataSource: "" });
           }}
         >
           From WebSocket

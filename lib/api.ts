@@ -833,6 +833,31 @@ export type RedisEntry = {
   value: unknown;
 };
 
+export const deleteRedisEntry = async (payload: { db: number; key: string }) => {
+  try {
+    const response = await api.delete("/admin/redis/entry", { data: payload });
+    return response.data as {
+      data: {
+        db: number;
+        key: string;
+        deleted: boolean;
+      };
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      throw new Error(
+        axiosError.response?.data?.error ||
+          `Failed to delete redis entry (${axiosError.response?.status})`
+      );
+    } else if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error("An unknown error occurred");
+    }
+  }
+};
+
 export const getRedisIndexes = async () => {
   try {
     const response = await api.get("/admin/redis/indexes");

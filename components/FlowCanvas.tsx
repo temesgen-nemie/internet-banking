@@ -853,7 +853,18 @@ export default function FlowCanvas() {
       } else if (type === "condition") {
         data = { name: "", nextNode: { routes: [], default: "" } };
       } else if (type === "router") {
-        data = { name: "", url: "", method: "POST", sessionMode: "required", responseMapping: {}, nextNode: { routes: [], default: "" } };
+        data = {
+          name: "",
+          url: "",
+          method: "POST",
+          sessionMode: "required",
+          headers: {},
+          apiBody: {},
+          apiBodyRaw: "",
+          bodyMode: "json",
+          responseMapping: {},
+          nextNode: { routes: [], default: "" },
+        };
       }
 
       addNode({

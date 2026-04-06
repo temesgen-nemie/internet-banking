@@ -173,6 +173,11 @@ export default function InspectorPanel() {
         name: "",
         url: "",
         method: "POST",
+        sessionMode: "required",
+        headers: {},
+        apiBody: {},
+        apiBodyRaw: "",
+        bodyMode: "json",
         responseMapping: {},
         nextNode: { routes: [], default: "" },
       });
