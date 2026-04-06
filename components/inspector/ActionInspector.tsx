@@ -1181,6 +1181,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     method,
                     headers,
                     body,
+                    ignoreTls: node.data.ignoreTls === true,
                   })) as Record<string, unknown>;
 
                   const responseCandidates = [
@@ -1265,6 +1266,17 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                 }
               }}
             />
+            <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
+              <input
+                type="checkbox"
+                checked={node.data.ignoreTls === true}
+                onChange={(event) =>
+                  updateNodeData(node.id, { ignoreTls: event.target.checked })
+                }
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Ignore TLS certificate verification for proxy send
+            </label>
           </div>
 
           <div>

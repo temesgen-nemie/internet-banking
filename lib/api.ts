@@ -79,6 +79,7 @@ export type CurlProxyPayload = {
   method: string;
   headers?: Record<string, string>;
   body?: string;
+  ignoreTls?: boolean;
 };
 
 export const callCurlProxy = async (payload: CurlProxyPayload) => {
@@ -731,6 +732,51 @@ export const getLogs = async (params: { from: string; to: string; limit: number 
       const axiosError = error as AxiosError<{ error?: string }>;
       throw new Error(
         axiosError.response?.data?.error || `Failed to fetch logs (${axiosError.response?.status})`
+      );
+    } else if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error("An unknown error occurred");
+    }
+  }
+};
+
+const normalizeExternalLogsPayload = (payload: unknown) => {
+  if (Array.isArray(payload)) {
+    return { data: payload };
+  }
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.data)) {
+      return { data: record.data };
+    }
+    if (Array.isArray(record.logs)) {
+      return { data: record.logs };
+    }
+    if (Array.isArray(record.items)) {
+      return { data: record.items };
+    }
+    return { data: [record] };
+  }
+  return { data: [] };
+};
+
+export const getExternalLogs = async (url: string, params: { from: string; to: string; limit: number }) => {
+  try {
+    const response = await axios.get(url, {
+      params,
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
+    });
+    return normalizeExternalLogsPayload(response.data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+      throw new Error(
+        axiosError.response?.data?.error ||
+          axiosError.response?.data?.message ||
+          `Failed to fetch logs (${axiosError.response?.status ?? "network"})`
       );
     } else if (error instanceof Error) {
       throw new Error(error.message);

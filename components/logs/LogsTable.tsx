@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getLogs, searchLogs } from "@/lib/api";
+import { getExternalLogs, getLogs, searchLogs } from "@/lib/api";
 import LogsAccordion, { type LogEntry } from "@/components/logs/LogsAccordion";
 import LogsFilters from "@/components/logs/LogsFilters";
 
@@ -24,7 +24,33 @@ const defaultRange = () => {
   return { from, to: now };
 };
 
-export default function LogsTable() {
+type LogsTableProps = {
+  source?: "builder" | "backend";
+  fetchUrl?: string;
+};
+
+const filterClientSideLogs = (
+  entries: LogEntry[],
+  params: { query: string; sessionId: string; status: string; limit: number }
+) => {
+  const trimmedQuery = params.query.trim().toLowerCase();
+  const trimmedSession = params.sessionId.trim().toLowerCase();
+  const trimmedStatus = params.status.trim().toLowerCase();
+
+  const filtered = entries.filter((entry) => {
+    const serialized = JSON.stringify(entry).toLowerCase();
+    if (trimmedQuery && !serialized.includes(trimmedQuery)) return false;
+    const entrySession = String(entry.session_id ?? "").toLowerCase();
+    if (trimmedSession && !entrySession.includes(trimmedSession)) return false;
+    const entryStatus = String(entry.status ?? entry.statusCode ?? "").toLowerCase();
+    if (trimmedStatus && !entryStatus.includes(trimmedStatus)) return false;
+    return true;
+  });
+
+  return filtered.slice(0, params.limit);
+};
+
+export default function LogsTable({ source = "builder", fetchUrl }: LogsTableProps) {
   const initialRange = useMemo(() => defaultRange(), []);
   const [fromDate, setFromDate] = useState<Date | null>(initialRange.from);
   const [toDate, setToDate] = useState<Date | null>(initialRange.to);
@@ -60,25 +86,42 @@ export default function LogsTable() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = hasSearch
-        ? await searchLogs({
-            q: trimmedQuery || undefined,
-            from: from || undefined,
-            to: to || undefined,
-            session_id: trimmedSession || undefined,
-            status: trimmedStatus || undefined,
-            limit,
-            offset: 0,
-          })
-        : await getLogs({ from, to, limit });
+      const data =
+        source === "backend"
+          ? await getExternalLogs(
+              fetchUrl ||
+                process.env.NEXT_PUBLIC_BACKEND_LOGS_FETCH_URL?.trim() ||
+                "https://sau.eaglelionsystems.com/v1.0/superappussd/dashen_push_otp_payment_middleware/logs/fetch",
+              { from, to, limit }
+            )
+          : hasSearch
+            ? await searchLogs({
+                q: trimmedQuery || undefined,
+                from: from || undefined,
+                to: to || undefined,
+                session_id: trimmedSession || undefined,
+                status: trimmedStatus || undefined,
+                limit,
+                offset: 0,
+              })
+            : await getLogs({ from, to, limit });
       const entries = Array.isArray(data?.data) ? data.data : [];
-      setLogs(entries);
+      setLogs(
+        source === "backend"
+          ? filterClientSideLogs(entries, {
+              query: trimmedQuery,
+              sessionId: trimmedSession,
+              status: trimmedStatus,
+              limit,
+            })
+          : entries
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load logs.");
     } finally {
       setIsLoading(false);
     }
-  }, [fromDate, limit, query, sessionId, status, toDate]);
+  }, [fetchUrl, fromDate, limit, query, sessionId, source, status, toDate]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {

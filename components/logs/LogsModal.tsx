@@ -11,6 +11,7 @@ type LogsModalProps = {
 };
 
 type TabKey = "fetch" | "live" | "redis";
+type LogSourceKey = "builder" | "backend";
 
 type LogsModalContentProps = {
   onOpenChange: (open: boolean) => void;
@@ -37,11 +38,31 @@ const resolveLogsWebSocketUrl = () => {
   return `${wsProtocol}://localhost:5000/v1/ussdpush/api/admin/logs/stream`;
 };
 
+const resolveBackendLogsWebSocketUrl = () => {
+  const configured = process.env.NEXT_PUBLIC_BACKEND_LOGS_WS_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+  return "wss://sau.eaglelionsystems.com/v1.0/superappussd/dashen_push_otp_payment_middleware/logs/live";
+};
+
+const resolveBackendLogsFetchUrl = () => {
+  const configured = process.env.NEXT_PUBLIC_BACKEND_LOGS_FETCH_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+  return "https://sau.eaglelionsystems.com/v1.0/superappussd/dashen_push_otp_payment_middleware/logs/fetch";
+};
+
 function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
+  const [activeSource, setActiveSource] = useState<LogSourceKey>("builder");
   const [activeTab, setActiveTab] = useState<TabKey>("fetch");
-  const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
-  const [liveRaw, setLiveRaw] = useState<string[]>([]);
-  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [builderLiveLogs, setBuilderLiveLogs] = useState<LogEntry[]>([]);
+  const [builderLiveRaw, setBuilderLiveRaw] = useState<string[]>([]);
+  const [isBuilderLiveConnected, setIsBuilderLiveConnected] = useState(false);
+  const [backendLiveLogs, setBackendLiveLogs] = useState<LogEntry[]>([]);
+  const [backendLiveRaw, setBackendLiveRaw] = useState<string[]>([]);
+  const [isBackendLiveConnected, setIsBackendLiveConnected] = useState(false);
   const [isTerminalMode, setIsTerminalMode] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [size, setSize] = useState(getInitialSize);
@@ -69,38 +90,50 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
   }, []);
 
   useEffect(() => {
-    const socket = new WebSocket(resolveLogsWebSocketUrl());
-
-    socket.addEventListener("open", () => {
-      setIsLiveConnected(true);
-    });
-
-    socket.addEventListener("close", () => {
-      setIsLiveConnected(false);
-    });
-
-    socket.addEventListener("error", () => {
-      setIsLiveConnected(false);
-    });
-
-    socket.addEventListener("message", (event) => {
-      setLiveRaw((prev) => {
-        const next = [event.data, ...prev];
-        return next.slice(0, 500);
-      });
-      try {
-        const parsed = JSON.parse(event.data) as LogEntry;
-        setLiveLogs((prev) => {
-          const next = [parsed, ...prev];
+    const attachSocket = (
+      url: string,
+      setConnected: (value: boolean) => void,
+      setRaw: React.Dispatch<React.SetStateAction<string[]>>,
+      setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
+    ) => {
+      const socket = new WebSocket(url);
+      socket.addEventListener("open", () => setConnected(true));
+      socket.addEventListener("close", () => setConnected(false));
+      socket.addEventListener("error", () => setConnected(false));
+      socket.addEventListener("message", (event) => {
+        setRaw((prev) => {
+          const next = [event.data, ...prev];
           return next.slice(0, 500);
         });
-      } catch {
-        // Ignore malformed messages.
-      }
-    });
+        try {
+          const parsed = JSON.parse(event.data) as LogEntry;
+          setLogs((prev) => {
+            const next = [parsed, ...prev];
+            return next.slice(0, 500);
+          });
+        } catch {
+          // Ignore malformed messages.
+        }
+      });
+      return socket;
+    };
+
+    const builderSocket = attachSocket(
+      resolveLogsWebSocketUrl(),
+      setIsBuilderLiveConnected,
+      setBuilderLiveRaw,
+      setBuilderLiveLogs
+    );
+    const backendSocket = attachSocket(
+      resolveBackendLogsWebSocketUrl(),
+      setIsBackendLiveConnected,
+      setBackendLiveRaw,
+      setBackendLiveLogs
+    );
 
     return () => {
-      socket.close();
+      builderSocket.close();
+      backendSocket.close();
     };
   }, []);
 
@@ -141,7 +174,13 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
     const node = terminalRef.current;
     if (!node) return;
     node.scrollTop = node.scrollHeight;
-  }, [activeTab, isTerminalMode, liveRaw]);
+  }, [activeTab, isTerminalMode, activeSource, builderLiveRaw, backendLiveRaw]);
+
+  const liveLogs = activeSource === "builder" ? builderLiveLogs : backendLiveLogs;
+  const liveRaw = activeSource === "builder" ? builderLiveRaw : backendLiveRaw;
+  const isLiveConnected =
+    activeSource === "builder" ? isBuilderLiveConnected : isBackendLiveConnected;
+  const backendFetchUrl = resolveBackendLogsFetchUrl();
 
   const parseNestedJson = (value: unknown, depth = 0): unknown => {
     if (depth > 4) return value;
@@ -233,6 +272,35 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
           <div className={`min-w-0 ${isMobile ? "flex items-start justify-between gap-3" : ""}`}>
             <div className="min-w-0">
               <div className="text-lg font-bold text-foreground">USSD Logs</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveSource("builder")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    activeSource === "builder"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Builder Logs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSource("backend");
+                    if (activeTab === "redis") {
+                      setActiveTab("fetch");
+                    }
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    activeSource === "backend"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Backend Logs
+                </button>
+              </div>
               {activeTab === "live" ? (
                 <div className="mt-2 flex items-center gap-2">
                   <span
@@ -319,11 +387,12 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
             <button
               type="button"
               onClick={() => setActiveTab("redis")}
+              disabled={activeSource !== "builder"}
               className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 activeTab === "redis"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
+              } ${activeSource !== "builder" ? "cursor-not-allowed opacity-50" : ""}`}
             >
               Redis
             </button>
@@ -370,7 +439,10 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
 
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 md:overflow-hidden md:p-6">
           {activeTab === "fetch" ? (
-            <LogsTable />
+            <LogsTable
+              source={activeSource}
+              fetchUrl={activeSource === "backend" ? backendFetchUrl : undefined}
+            />
           ) : activeTab === "live" ? (
             <div className="h-full overflow-auto">
               {isTerminalMode ? (
