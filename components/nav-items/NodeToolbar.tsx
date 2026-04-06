@@ -59,6 +59,10 @@ export default function NodeToolbar() {
                       url: "",
                       method: "POST",
                       sessionMode: "required",
+                      headers: {},
+                      apiBody: {},
+                      apiBodyRaw: "",
+                      bodyMode: "json",
                       responseMapping: {},
                       nextNode: { routes: [], default: "" },
                     }
