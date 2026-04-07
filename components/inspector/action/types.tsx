@@ -26,6 +26,7 @@ export type ActionNodeData = {
   apiBodyRaw?: string;
   bodyMode?: "json" | "soap" | "form";
   ignoreTls?: boolean;
+  forceTls12?: boolean;
   requestSource?: "api" | "local" | "ws";
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;

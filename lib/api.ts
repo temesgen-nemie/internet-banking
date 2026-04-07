@@ -80,6 +80,7 @@ export type CurlProxyPayload = {
   headers?: Record<string, string>;
   body?: string;
   ignoreTls?: boolean;
+  forceTls12?: boolean;
 };
 
 export const callCurlProxy = async (payload: CurlProxyPayload) => {
