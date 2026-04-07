@@ -365,7 +365,7 @@ function LogsModalContent({ onOpenChange }: LogsModalContentProps) {
             <button
               type="button"
               onClick={() => setActiveTab("fetch")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 activeTab === "fetch"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-muted text-muted-foreground hover:text-foreground"
