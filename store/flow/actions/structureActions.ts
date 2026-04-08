@@ -300,7 +300,9 @@ export const createStructureActions = ({
 
       if (node.type === "prompt") {
         nextData.message = flowNode.message ?? nextData.message;
+        nextData.responseFormat = flowNode.responseFormat ?? nextData.responseFormat;
         nextData.responseBodyMapping = flowNode.responseBodyMapping ?? nextData.responseBodyMapping;
+        nextData.responseBodyRaw = flowNode.responseBodyRaw ?? nextData.responseBodyRaw;
         nextData.responseStatusCode =
           typeof flowNode.responseStatusCode === "number"
             ? flowNode.responseStatusCode

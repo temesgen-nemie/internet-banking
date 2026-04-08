@@ -20,7 +20,9 @@ export type FlowNode = {
   args?: Record<string, unknown>;
   saveAs?: string;
   message?: string;
+  responseFormat?: "json" | "soap";
   responseBodyMapping?: Record<string, unknown>;
+  responseBodyRaw?: string;
   responseHeaders?: Record<string, unknown>;
   responseStatusCode?: number;
   sessionMode?: "required" | "optional" | "disabled";

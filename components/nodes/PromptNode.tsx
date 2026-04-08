@@ -16,7 +16,9 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
+  responseFormat?: "json" | "soap";
   responseBodyMapping?: Record<string, unknown>;
+  responseBodyRaw?: string;
   responseStatusCode?: number;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
@@ -57,6 +59,9 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
   };
 
   const previewText = (() => {
+    if (data.responseFormat === "soap") {
+      return String(data.responseBodyRaw ?? data.message ?? "").trim() || "No message";
+    }
     if (
       data.responseBodyMapping &&
       typeof data.responseBodyMapping === "object" &&

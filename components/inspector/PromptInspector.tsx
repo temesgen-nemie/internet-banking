@@ -25,7 +25,10 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
+  responseFormat?: "json" | "soap";
   responseBodyMapping?: Record<string, unknown>;
+  responseBodyRaw?: string;
+  responseHeaders?: Record<string, unknown>;
   responseStatusCode?: number;
   inputType?: "NON_ZERO_FLOAT" | "NON_ZERO_INT" | "FLOAT" | "INTEGER" | "STRING";
   invalidInputTypeMessage?: string;
@@ -53,6 +56,9 @@ type PromptNode = {
 };
 
 const stringifyPromptResponseBody = (node: PromptNode): string => {
+  if (node.data.responseFormat === "soap") {
+    return String(node.data.responseBodyRaw ?? node.data.message ?? "");
+  }
   const responseBody = node.data.responseBodyMapping;
   if (responseBody && typeof responseBody === "object" && !Array.isArray(responseBody)) {
     return JSON.stringify(responseBody, null, 2);
@@ -304,6 +310,13 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
 
   const handleResponseBodyChange = (nextValue: string) => {
     setResponseBodyText(nextValue);
+    if (node.data.responseFormat === "soap") {
+      setResponseBodyError(null);
+      updateNodeData(node.id, {
+        responseBodyRaw: nextValue,
+      });
+      return;
+    }
     try {
       const parsed = JSON.parse(nextValue) as unknown;
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -335,12 +348,18 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
         />
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Response JSON</label>
+          <label className="text-xs font-medium text-gray-600">
+            {node.data.responseFormat === "soap" ? "Response SOAP/XML" : "Response JSON"}
+          </label>
           <textarea
             className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900"
             value={responseBodyText}
             rows={10}
-            placeholder='{\n  "message": "utilities ok t"\n}'
+            placeholder={
+              node.data.responseFormat === "soap"
+                ? "<cps-message>\n  <sequence_number>1</sequence_number>\n  <msg_content>{{vars.message}}</msg_content>\n</cps-message>"
+                : '{\n  "message": "utilities ok t"\n}'
+            }
             onChange={(e) => handleResponseBodyChange(e.target.value)}
           />
           {responseBodyError && (
@@ -1128,6 +1147,34 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
               </select>
             </div>
             */}
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
+                Response Format
+              </label>
+              <select
+                className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all text-gray-900"
+                value={node.data.responseFormat ?? "json"}
+                onChange={(e) => {
+                  const nextFormat = e.target.value as "json" | "soap";
+                  const nextData: Partial<Record<string, unknown>> = {
+                    responseFormat: nextFormat,
+                  };
+                  if (nextFormat === "soap") {
+                    nextData.responseBodyRaw = String(node.data.responseBodyRaw ?? responseBodyText ?? "");
+                    nextData.responseHeaders = {
+                      ...(typeof node.data.responseHeaders === "object" && node.data.responseHeaders
+                        ? (node.data.responseHeaders as Record<string, unknown>)
+                        : {}),
+                      "Content-Type": "text/xml; charset=utf-8",
+                    };
+                  }
+                  updateNodeData(node.id, nextData);
+                }}
+              >
+                <option value="json">JSON</option>
+                <option value="soap">SOAP/XML</option>
+              </select>
+            </div>
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
                 Response Status Code

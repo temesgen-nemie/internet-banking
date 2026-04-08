@@ -193,11 +193,19 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const inputType = String(data.inputType ?? (data.inputValidationEnabled ? "STRING" : ""));
         const invalidInputTypeMessage = String(data.invalidInputTypeMessage ?? "");
         const promptExtras: Partial<FlowNode> = {
+          responseFormat:
+            data.responseFormat === "soap" || data.responseFormat === "json"
+              ? data.responseFormat
+              : undefined,
           responseBodyMapping:
             data.responseBodyMapping &&
             typeof data.responseBodyMapping === "object" &&
             !Array.isArray(data.responseBodyMapping)
               ? (data.responseBodyMapping as Record<string, unknown>)
+              : undefined,
+          responseBodyRaw:
+            typeof data.responseBodyRaw === "string" && data.responseBodyRaw.trim().length > 0
+              ? data.responseBodyRaw
               : undefined,
           responseHeaders:
             data.responseHeaders &&
