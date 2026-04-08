@@ -273,7 +273,6 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
 
   const localDataSource = (node.data.dataSource || "inputManager") as
     | "inputManager"
-    | "redis"
     | "commonManager";
   const commonManagerFetchMode = (node.data.commonManagerFetchMode ?? "session") as
     | "session"
@@ -1590,7 +1589,6 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
               >
                 <option value="inputManager">inputManager</option>
                 <option value="commonManager">commonManager</option>
-                <option value="redis">redis</option>
               </select>
             </div>
 

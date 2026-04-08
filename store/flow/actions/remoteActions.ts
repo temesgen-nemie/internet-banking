@@ -16,6 +16,31 @@ const getVisualStateArrays = (flow?: FlowJson) => {
   return { nodes, edges };
 };
 
+const collectGroupSubtree = (groupId: string, nodes: Node[], edges: Edge[]) => {
+  const descendants: Node[] = [];
+
+  const visit = (parentId: string) => {
+    const children = nodes.filter((node: Node) => node.parentNode === parentId);
+    for (const child of children) {
+      descendants.push(child);
+      if (child.type === "group") {
+        visit(child.id);
+      }
+    }
+  };
+
+  visit(groupId);
+
+  const groupNode = nodes.find((node: Node) => node.id === groupId);
+  const nodesToSave = groupNode ? [groupNode, ...descendants] : descendants;
+  const nodeIds = new Set(nodesToSave.map((node) => node.id));
+  const relevantEdges = edges.filter(
+    (edge: Edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)
+  );
+
+  return { nodesToSave, relevantEdges };
+};
+
 export const createRemoteFlowActions = ({
   set,
   get,
@@ -25,14 +50,7 @@ export const createRemoteFlowActions = ({
 }) => ({
   updatePublishedFlow: async (groupId: string) => {
     const { nodes, edges, modifiedGroupIds } = get();
-    const children = nodes.filter((n: Node) => n.parentNode === groupId);
-    const childIds = children.map((n: Node) => n.id);
-    const relevantEdges = edges.filter(
-      (e: Edge) => childIds.includes(e.source) && childIds.includes(e.target)
-    );
-
-    const groupNode = nodes.find((n: Node) => n.id === groupId);
-    const nodesToSave = groupNode ? [...children, groupNode] : children;
+    const { nodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
     const flowName = subflowJson.flowName;
 
@@ -420,19 +438,12 @@ export const createRemoteFlowActions = ({
 
   publishGroup: async (groupId: string) => {
     const { nodes, edges } = get();
-    const children = nodes.filter((n: Node) => n.parentNode === groupId);
-    const childIds = children.map((n: Node) => n.id);
-    const relevantEdges = edges.filter(
-      (e: Edge) => childIds.includes(e.source) && childIds.includes(e.target)
-    );
-
-    const groupNode = nodes.find((n: Node) => n.id === groupId);
-    const nodesToSave = groupNode ? [...children, groupNode] : children;
+    const { nodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
 
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
 
     try {
-      if (!children.some((n: Node) => n.type === "start")) {
+      if (!nodesToSave.some((n: Node) => n.type === "start")) {
         throw new Error("Cannot publish a group without a Start node.");
       }
 
