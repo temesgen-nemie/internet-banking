@@ -1493,6 +1493,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                 <ResponseMappingEditor
                   mappings={mappingPairs}
                   options={responseOptions}
+                  inputManagerSaveSessionId={String(node.data.inputManagerSaveSessionId ?? "")}
                   commonManagerSaveSessionId={String(node.data.commonManagerSaveSessionId ?? "")}
                   onAdd={() => {
                     const next = [
@@ -1520,6 +1521,9 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     setMappingPairs(next);
                     syncResponseMapping(next);
                   }}
+                  onInputManagerSaveSessionIdChange={(value) =>
+                    updateNodeData(node.id, { inputManagerSaveSessionId: value })
+                  }
                   onCommonManagerSaveSessionIdChange={(value) =>
                     updateNodeData(node.id, { commonManagerSaveSessionId: value })
                   }

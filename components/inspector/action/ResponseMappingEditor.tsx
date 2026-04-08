@@ -11,6 +11,7 @@ type ResponseMappingEditorProps = {
     encrypt?: boolean;
   }>;
   options: string[];
+  inputManagerSaveSessionId: string;
   commonManagerSaveSessionId: string;
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -22,16 +23,19 @@ type ResponseMappingEditorProps = {
     common: boolean,
     encrypt: boolean
   ) => void;
+  onInputManagerSaveSessionIdChange: (value: string) => void;
   onCommonManagerSaveSessionIdChange: (value: string) => void;
 };
 
 export default function ResponseMappingEditor({
   mappings,
   options,
+  inputManagerSaveSessionId,
   commonManagerSaveSessionId,
   onAdd,
   onRemove,
   onUpdate,
+  onInputManagerSaveSessionIdChange,
   onCommonManagerSaveSessionIdChange,
 }: ResponseMappingEditorProps) {
   const [editModes, setEditModes] = useState<Record<string, boolean>>({});
@@ -48,6 +52,17 @@ export default function ResponseMappingEditor({
         >
           + Add Mapping
         </button>
+      </div>
+      <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          Input Manager Session Id
+        </label>
+        <input
+          className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
+          placeholder="Leave empty to use the live session, or use {{vars.sessionId}}"
+          value={inputManagerSaveSessionId}
+          onChange={(e) => onInputManagerSaveSessionIdChange(e.target.value)}
+        />
       </div>
       <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
         <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">

@@ -34,6 +34,7 @@ export type ActionNodeData = {
   commonManagerResponseMappingKeys?: string[];
   encryptResponseMappingKeys?: string[];
   persistManager?: "inputManager" | "commonManager";
+  inputManagerSaveSessionId?: string;
   commonManagerSaveMode?: "flowSession" | "provided" | "generate";
   commonManagerSaveSessionId?: string;
   commonManagerSessionOutputVar?: string;
