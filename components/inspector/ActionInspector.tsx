@@ -1594,6 +1594,26 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
               </select>
             </div>
 
+            {localDataSource === "inputManager" && (
+              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Session Id
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded-md border border-gray-200 p-2 bg-white shadow-sm text-sm text-gray-900"
+                    placeholder="Leave empty to use the live session, or use {{vars.sessionId}}"
+                    value={String(node.data.inputManagerFetchSessionId ?? "")}
+                    onChange={(e) =>
+                      updateNodeData(node.id, {
+                        inputManagerFetchSessionId: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
             {localDataSource === "commonManager" && (
               <div className="grid grid-cols-2 gap-4 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
                 <div>

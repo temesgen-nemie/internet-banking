@@ -65,6 +65,7 @@ export type FlowNode = {
   commonManagerResponseMappingKeys?: string[];
   persistManager?: "inputManager" | "commonManager";
   inputManagerSaveSessionId?: string;
+  inputManagerFetchSessionId?: string;
   commonManagerSaveMode?: "flowSession" | "provided" | "generate";
   commonManagerSaveSessionId?: string;
   commonManagerSessionOutputVar?: string;
