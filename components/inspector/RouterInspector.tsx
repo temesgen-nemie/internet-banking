@@ -18,6 +18,8 @@ type RouterInspectorProps = {
       method?: string;
       sessionMode?: RouterSessionMode;
       responseMapping?: Record<string, string>;
+      persistResponseMappingKeys?: string[];
+      inputManagerSaveSessionId?: string;
       headers?: Record<string, unknown>;
       apiBody?: Record<string, unknown>;
       apiBodyRaw?: string;
@@ -60,6 +62,7 @@ type MappingRow = {
   id: string;
   key: string;
   value: string;
+  persist: boolean;
 };
 
 const SESSION_MODE_OPTIONS: Array<{
@@ -195,12 +198,14 @@ export default function RouterInspector({
   const lastHeadersSignatureRef = React.useRef(headersSignature);
   const toMappingRows = React.useCallback(() => {
     const mapping = node.data.responseMapping || {};
+    const persisted = new Set(node.data.persistResponseMappingKeys || []);
     return Object.entries(mapping).map(([key, value], idx) => ({
       id: `map-init-${idx}-${key}`,
       key,
       value: String(value ?? ""),
+      persist: persisted.has(key),
     }));
-  }, [node.data.responseMapping]);
+  }, [node.data.persistResponseMappingKeys, node.data.responseMapping]);
   const [mappingRows, setMappingRows] = React.useState<MappingRow[]>(toMappingRows);
 
   React.useEffect(() => {
@@ -298,14 +303,19 @@ export default function RouterInspector({
   const commitResponseMapping = React.useCallback(
     (rows: MappingRow[]) => {
       const nextMapping: Record<string, string> = {};
+      const nextPersistKeys: string[] = [];
       rows.forEach((row) => {
         const key = row.key.trim();
         if (!key) return;
         nextMapping[key] = row.value;
+        if (row.persist) {
+          nextPersistKeys.push(key);
+        }
       });
       lastResponseMappingSignatureRef.current = JSON.stringify(nextMapping);
       updateNodeData(node.id, {
         responseMapping: Object.keys(nextMapping).length > 0 ? nextMapping : {},
+        persistResponseMappingKeys: nextPersistKeys,
       });
     },
     [node.id, updateNodeData]
@@ -406,6 +416,7 @@ export default function RouterInspector({
         id: `map-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         key: "",
         value: "",
+        persist: false,
       },
     ]);
   };
@@ -622,15 +633,26 @@ export default function RouterInspector({
                     key={row.id}
                     className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center p-2 border border-gray-200 rounded-lg bg-white"
                   >
-                    <input
-                      className="w-full text-sm p-2 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-gray-800 transition-all"
-                      placeholder="requestAmount"
-                      value={row.key}
-                      onChange={(e) => updateMappingRow(idx, { key: e.target.value })}
-                    />
+                    <div className="space-y-2">
+                      <input
+                        className="w-full text-sm p-2 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none text-gray-800 transition-all"
+                        placeholder="requestAmount"
+                        value={row.key}
+                        onChange={(e) => updateMappingRow(idx, { key: e.target.value })}
+                      />
+                      <label className="inline-flex items-center gap-2 text-[11px] font-medium text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={row.persist}
+                          onChange={(e) => updateMappingRow(idx, { persist: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        Persist to Input Manager
+                      </label>
+                    </div>
                     <input
                       className="w-full text-sm p-2 rounded-lg border-2 border-gray-200 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none font-mono text-gray-800 transition-all"
-                      placeholder="{{number:http.body.amount}}"
+                      placeholder="{{request.body.amount}}"
                       value={row.value}
                       onChange={(e) => updateMappingRow(idx, { value: e.target.value })}
                     />
@@ -659,6 +681,26 @@ export default function RouterInspector({
                 {mappingRows.length === 0 ? (
                   <div className="text-xs text-gray-400 italic p-3 border border-dashed border-gray-200 rounded-lg bg-gray-50">
                     No mappings added.
+                  </div>
+                ) : null}
+
+                {mappingRows.some((row) => row.persist) ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <label className="text-[10px] font-bold text-amber-700 uppercase mb-1 block">
+                      Input Manager Session ID
+                    </label>
+                    <input
+                      className="w-full text-sm p-2 rounded-lg border-2 border-amber-200 bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none font-mono text-gray-800 transition-all"
+                      placeholder="{{request.body.uuid}}"
+                      value={String(node.data.inputManagerSaveSessionId ?? "")}
+                      onChange={(e) =>
+                        updateNodeData(node.id, { inputManagerSaveSessionId: e.target.value })
+                      }
+                    />
+                    <div className="mt-1 text-[11px] text-amber-700/80">
+                      Accepts literals or request templates like <span className="font-mono">{`{{request.body.uuid}}`}</span>.
+                      Leave empty to use the router session.
+                    </div>
                   </div>
                 ) : null}
               </div>

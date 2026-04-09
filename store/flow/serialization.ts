@@ -194,7 +194,9 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
         const invalidInputTypeMessage = String(data.invalidInputTypeMessage ?? "");
         const promptExtras: Partial<FlowNode> = {
           responseFormat:
-            data.responseFormat === "soap" || data.responseFormat === "json"
+            data.responseFormat === "soap" ||
+            data.responseFormat === "json" ||
+            data.responseFormat === "ussd"
               ? data.responseFormat
               : undefined,
           responseBodyMapping:
@@ -237,6 +239,9 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               : undefined,
           persistInput: typeof data.persistInput === "boolean" ? data.persistInput : undefined,
           persistInputAs: String(data.persistInputAs ?? "") || undefined,
+          saveSessionStep:
+            typeof data.saveSessionStep === "boolean" ? data.saveSessionStep : undefined,
+          sessionStepSessionId: String(data.sessionStepSessionId ?? "") || undefined,
           responseType: (data.responseType as any) || "CONTINUE",
           encryptInput: typeof data.encryptInput === "boolean" ? data.encryptInput : undefined,
         };
@@ -624,6 +629,12 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             Object.keys(responseMapping).length > 0
               ? responseMapping
               : undefined,
+          persistResponseMappingKeys: Array.isArray(data.persistResponseMappingKeys)
+            ? (data.persistResponseMappingKeys as unknown[])
+                .map((value) => String(value ?? "").trim())
+                .filter(Boolean)
+            : undefined,
+          inputManagerSaveSessionId: String(data.inputManagerSaveSessionId ?? "") || undefined,
           nextNode: {
             routes,
             default: defaultTarget.id || "",

@@ -25,7 +25,7 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
-  responseFormat?: "json" | "soap";
+  responseFormat?: "json" | "soap" | "ussd";
   responseBodyMapping?: Record<string, unknown>;
   responseBodyRaw?: string;
   responseHeaders?: Record<string, unknown>;
@@ -44,6 +44,8 @@ type PromptNodeData = {
   emptyInputMessage?: string;
   persistInput?: boolean;
   persistInputAs?: string;
+  saveSessionStep?: boolean;
+  sessionStepSessionId?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
   isMainMenu?: boolean;
@@ -56,7 +58,7 @@ type PromptNode = {
 };
 
 const stringifyPromptResponseBody = (node: PromptNode): string => {
-  if (node.data.responseFormat === "soap") {
+  if (node.data.responseFormat === "soap" || node.data.responseFormat === "ussd") {
     return String(node.data.responseBodyRaw ?? node.data.message ?? "");
   }
   const responseBody = node.data.responseBodyMapping;
@@ -317,6 +319,13 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
       });
       return;
     }
+    if (node.data.responseFormat === "ussd") {
+      setResponseBodyError(null);
+      updateNodeData(node.id, {
+        message: nextValue,
+      });
+      return;
+    }
     try {
       const parsed = JSON.parse(nextValue) as unknown;
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -349,7 +358,11 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
 
         <div>
           <label className="text-xs font-medium text-gray-600">
-            {node.data.responseFormat === "soap" ? "Response SOAP/XML" : "Response JSON"}
+            {node.data.responseFormat === "soap"
+              ? "Response SOAP/XML"
+              : node.data.responseFormat === "ussd"
+                ? "USSD Message"
+                : "Response JSON"}
           </label>
           <textarea
             className="mt-2 w-full rounded-md border border-gray-100 p-2 bg-white shadow-sm placeholder-gray-400 text-gray-900"
@@ -358,6 +371,8 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
             placeholder={
               node.data.responseFormat === "soap"
                 ? "<cps-message>\n  <sequence_number>1</sequence_number>\n  <msg_content>{{vars.message}}</msg_content>\n</cps-message>"
+                : node.data.responseFormat === "ussd"
+                  ? "Enter the USSD message to return to the user..."
                 : '{\n  "message": "utilities ok t"\n}'
             }
             onChange={(e) => handleResponseBodyChange(e.target.value)}
@@ -369,6 +384,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
           )}
         </div>
 
+        {node.data.responseFormat !== "ussd" && (
         <div>
           <label className="text-xs font-medium text-gray-600">Fallback Message</label>
           <textarea
@@ -445,6 +461,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
             )}
           </div>
         </div>
+        )}
 
         {isMenuMode && (
           <div>
@@ -1132,10 +1149,10 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {/*
+            {node.data.responseFormat === "ussd" && (
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
-                Response Type
+                Session Type
               </label>
               <select
                 className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all text-gray-900"
@@ -1146,7 +1163,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                 <option value="END">END</option>
               </select>
             </div>
-            */}
+            )}
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-tight mb-1.5 block">
                 Response Format
@@ -1155,7 +1172,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                 className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:border-indigo-400 focus:bg-white transition-all text-gray-900"
                 value={node.data.responseFormat ?? "json"}
                 onChange={(e) => {
-                  const nextFormat = e.target.value as "json" | "soap";
+                  const nextFormat = e.target.value as "json" | "soap" | "ussd";
                   const nextData: Partial<Record<string, unknown>> = {
                     responseFormat: nextFormat,
                   };
@@ -1167,12 +1184,16 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                         : {}),
                       "Content-Type": "text/xml; charset=utf-8",
                     };
+                  } else if (nextFormat === "ussd") {
+                    nextData.message = String(node.data.message ?? "");
+                    nextData.responseType = (node.data.responseType as "CONTINUE" | "END" | undefined) ?? "CONTINUE";
                   }
                   updateNodeData(node.id, nextData);
                 }}
               >
                 <option value="json">JSON</option>
                 <option value="soap">SOAP/XML</option>
+                <option value="ussd">USSD</option>
               </select>
             </div>
             <div>
@@ -1244,7 +1265,7 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
             </h3>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-xs text-gray-600 font-medium cursor-pointer">
               <input
                 type="checkbox"
@@ -1271,9 +1292,23 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
               />
               <span className={node.data.persistByIndex ? "opacity-40" : ""}>Persist Input</span>
             </label>
+            <label className="flex items-center gap-2 text-xs text-gray-600 font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(node.data.saveSessionStep)}
+                onChange={(e) =>
+                  updateNodeData(node.id, {
+                    saveSessionStep: e.target.checked,
+                    ...(e.target.checked ? {} : { sessionStepSessionId: "" }),
+                  })
+                }
+                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all border-2 checked:bg-emerald-600"
+              />
+              <span>Save Session Step</span>
+            </label>
           </div>
 
-          {(node.data.persistByIndex || node.data.persistInput) && (
+          {(node.data.persistByIndex || node.data.persistInput || node.data.saveSessionStep) && (
             <div className="pt-3 space-y-3 animate-in fade-in slide-in-from-top-2">
               {node.data.persistByIndex && (
                 <div className="space-y-3">
@@ -1331,6 +1366,25 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                     onChange={(e) => updateNodeData(node.id, { persistInputAs: e.target.value })}
                     placeholder="receiverAccountNumber"
                   />
+                </div>
+              )}
+              {node.data.saveSessionStep && (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
+                    Session Step Session ID
+                  </label>
+                  <input
+                    className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
+                    value={String(node.data.sessionStepSessionId ?? "")}
+                    onChange={(e) =>
+                      updateNodeData(node.id, { sessionStepSessionId: e.target.value })
+                    }
+                    placeholder="{{vars.uuid}}"
+                  />
+                  <div className="mt-1 text-[10px] text-gray-400">
+                    Saves <span className="font-mono">sessionStep</span> with this prompt name into
+                    input manager for the provided session. Leave empty to use the current session.
+                  </div>
                 </div>
               )}
             </div>

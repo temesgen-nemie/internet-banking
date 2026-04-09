@@ -16,7 +16,7 @@ type PromptNextNode = {
 type PromptNodeData = {
   name?: string;
   message?: string;
-  responseFormat?: "json" | "soap";
+  responseFormat?: "json" | "soap" | "ussd";
   responseBodyMapping?: Record<string, unknown>;
   responseBodyRaw?: string;
   responseStatusCode?: number;
@@ -33,6 +33,8 @@ type PromptNodeData = {
   emptyInputMessage?: string;
   persistInput?: boolean;
   persistInputAs?: string;
+  saveSessionStep?: boolean;
+  sessionStepSessionId?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
 };
@@ -59,7 +61,7 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
   };
 
   const previewText = (() => {
-    if (data.responseFormat === "soap") {
+    if (data.responseFormat === "soap" || data.responseFormat === "ussd") {
       return String(data.responseBodyRaw ?? data.message ?? "").trim() || "No message";
     }
     if (
@@ -99,6 +101,11 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
           {typeof data.responseStatusCode === "number" && (
             <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
               HTTP {data.responseStatusCode}
+            </div>
+          )}
+          {data.responseFormat === "ussd" && (
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+              USSD {data.responseType ?? "CONTINUE"}
             </div>
           )}
         </div>

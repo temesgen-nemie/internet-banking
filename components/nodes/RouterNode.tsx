@@ -22,6 +22,8 @@ type RouterNodeData = {
   method?: string;
   sessionMode?: "required" | "optional" | "disabled";
   responseMapping?: Record<string, string>;
+  persistResponseMappingKeys?: string[];
+  inputManagerSaveSessionId?: string;
   nextNode?: string | RouterNextNode;
 };
 

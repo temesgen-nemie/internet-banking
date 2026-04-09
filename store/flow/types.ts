@@ -20,7 +20,7 @@ export type FlowNode = {
   args?: Record<string, unknown>;
   saveAs?: string;
   message?: string;
-  responseFormat?: "json" | "soap";
+  responseFormat?: "json" | "soap" | "ussd";
   responseBodyMapping?: Record<string, unknown>;
   responseBodyRaw?: string;
   responseHeaders?: Record<string, unknown>;
@@ -39,6 +39,8 @@ export type FlowNode = {
   inputValidationEnabled?: boolean;
   persistInput?: boolean;
   persistInputAs?: string;
+  saveSessionStep?: boolean;
+  sessionStepSessionId?: string;
   script?: string;
   timeoutMs?: number;
   scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string }>;
