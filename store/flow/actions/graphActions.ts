@@ -281,7 +281,11 @@ removeNodes: (ids) =>
       // Action Node Cleanup
       if (sourceNode.type === "action") {
         if (!handle || handle === "default") {
-          updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+          updateNodeDataLocal(sourceNode.id, (data) => ({
+            ...data,
+            nextNode: "",
+            nextNodeId: "",
+          }));
         } else {
           updateNodeDataLocal(sourceNode.id, (data) => {
             const routes = Array.isArray(data.routes) ? [...data.routes] : [];
@@ -295,7 +299,11 @@ removeNodes: (ids) =>
       // Script Node Cleanup
       else if (sourceNode.type === "script") {
         if (!handle || handle === "default") {
-          updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+          updateNodeDataLocal(sourceNode.id, (data) => ({
+            ...data,
+            nextNode: "",
+            nextNodeId: "",
+          }));
         } else {
           updateNodeDataLocal(sourceNode.id, (data) => {
             const routes = Array.isArray(data.routes) ? [...data.routes] : [];
@@ -320,13 +328,21 @@ removeNodes: (ids) =>
               if (!nextNode || typeof nextNode !== "object" || !nextNode.routes) return data;
               const routes = [...nextNode.routes];
               if (!routes[routeIdx]) return data;
-              // PRESERVE gotoFlow (name), only clear the ID reference
-              routes[routeIdx] = { ...routes[routeIdx], gotoId: "" };
+              routes[routeIdx] = {
+                ...routes[routeIdx],
+                goto: "",
+                gotoFlow: "",
+                gotoId: "",
+              };
               return { ...data, nextNode: { ...nextNode, routes } };
             });
           }
         } else {
-          updateNodeDataLocal(sourceNode.id, (data) => ({ ...data, nextNode: "" }));
+          updateNodeDataLocal(sourceNode.id, (data) => ({
+            ...data,
+            nextNode: "",
+            nextNodeId: "",
+          }));
         }
       }
       // Condition Node Cleanup
@@ -337,7 +353,11 @@ removeNodes: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
+            return {
+              ...data,
+              nextNode: { ...nextNode, default: "", defaultId: "" },
+              nextNodeId: "",
+            };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -363,7 +383,11 @@ removeNodes: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string; defaultId?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
+            return {
+              ...data,
+              nextNode: { ...nextNode, default: "", defaultId: "" },
+              nextNodeId: "",
+            };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -503,6 +527,7 @@ removeEdges: (ids) =>
           updateNodeDataLocal(sourceNode.id, (data) => ({
             ...data,
             nextNode: "",
+            nextNodeId: "",
           }));
         } else {
           updateNodeDataLocal(sourceNode.id, (data) => {
@@ -521,6 +546,7 @@ removeEdges: (ids) =>
           updateNodeDataLocal(sourceNode.id, (data) => ({
             ...data,
             nextNode: "",
+            nextNodeId: "",
           }));
         } else {
           updateNodeDataLocal(sourceNode.id, (data) => {
@@ -547,14 +573,19 @@ removeEdges: (ids) =>
             if (!nextNode || typeof nextNode !== "object" || !nextNode.routes) return data;
             const routes = [...nextNode.routes];
             if (!routes[routeIdx]) return data;
-            // PRESERVE gotoFlow (name), only clear the ID reference
-            routes[routeIdx] = { ...routes[routeIdx], gotoId: "" };
+            routes[routeIdx] = {
+              ...routes[routeIdx],
+              goto: "",
+              gotoFlow: "",
+              gotoId: "",
+            };
             return { ...data, nextNode: { ...nextNode, routes } };
           });
         } else {
           updateNodeDataLocal(sourceNode.id, (data) => ({
             ...data,
             nextNode: "",
+            nextNodeId: "",
           }));
         }
         return;
@@ -567,7 +598,11 @@ removeEdges: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
+            return {
+              ...data,
+              nextNode: { ...nextNode, default: "", defaultId: "" },
+              nextNodeId: "",
+            };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -593,7 +628,11 @@ removeEdges: (ids) =>
               (data.nextNode as
                 | { routes?: Array<Record<string, unknown>>; default?: string }
                 | undefined) || {};
-            return { ...data, nextNode: { ...nextNode, default: "", defaultId: "" } };
+            return {
+              ...data,
+              nextNode: { ...nextNode, default: "", defaultId: "" },
+              nextNodeId: "",
+            };
           });
         } else if (handle.startsWith("route-")) {
           const routeIdx = parseInt(handle.split("-")[1], 10);
@@ -616,6 +655,7 @@ removeEdges: (ids) =>
         updateNodeDataLocal(sourceNode.id, (data) => ({
           ...data,
           entryNode: "",
+          entryNodeId: "",
         }));
       }
     });
