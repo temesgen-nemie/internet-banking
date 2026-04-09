@@ -70,7 +70,9 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
     if (bodyMode === "soap" || bodyMode === "form") {
       return String(node.data.apiBodyRaw ?? "");
     }
-    return JSON.stringify(node.data.apiBody ?? {}, null, 2);
+    return typeof node.data.apiBodyRaw === "string"
+      ? node.data.apiBodyRaw
+      : JSON.stringify(node.data.apiBody ?? {}, null, 2);
   });
   const [formFields, setFormFields] = React.useState<FormFieldRow[]>(() =>
     ensureFormRows(parseFormEncodedBody(String(node.data.apiBodyRaw ?? "")))
@@ -410,11 +412,13 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
       return;
     }
 
-    const nextJsonBody = JSON.stringify(node.data.apiBody ?? {}, null, 2);
+    const nextJsonBody =
+      typeof node.data.apiBodyRaw === "string"
+        ? node.data.apiBodyRaw
+        : JSON.stringify(node.data.apiBody ?? {}, null, 2);
     if (nextJsonBody !== apiBodyText) {
       setApiBodyText(nextJsonBody);
     }
-    setApiBodyError(null);
   }, [
     apiBodyText,
     bodyMode,
@@ -1438,9 +1442,10 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                         parsed = JSON.parse(apiBodyText || "{}");
                       }
                       setApiBodyError(null);
-                      updateNodeData(node.id, { apiBody: parsed });
+                      updateNodeData(node.id, { apiBodyRaw: apiBodyText, apiBody: parsed });
                     } catch (err) {
                       setApiBodyError(err instanceof Error ? err.message : "Invalid JSON");
+                      updateNodeData(node.id, { apiBodyRaw: apiBodyText });
                     }
                   }}
                   onApiBodyChange={(value) => {
@@ -1453,9 +1458,10 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     try {
                       const parsed = JSON.parse(value || "{}");
                       setApiBodyError(null);
-                      updateNodeData(node.id, { apiBody: parsed });
+                      updateNodeData(node.id, { apiBodyRaw: value, apiBody: parsed });
                     } catch (err) {
                       setApiBodyError(err instanceof Error ? err.message : "Invalid JSON");
+                      updateNodeData(node.id, { apiBodyRaw: value });
                     }
                   }}
                   onAddFormField={() => {
