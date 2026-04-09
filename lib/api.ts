@@ -56,6 +56,68 @@ api.interceptors.response.use(
   }
 );
 
+type ApiErrorPayload = {
+  error?: string;
+  message?: string;
+  details?: unknown;
+  issues?: unknown;
+};
+
+const stringifyApiErrorDetails = (value: unknown): string | null => {
+  if (value == null) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  if (Array.isArray(value)) {
+    const items = value
+      .map((entry) => stringifyApiErrorDetails(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return items.length > 0 ? items.join(" | ") : null;
+  }
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
+const buildApiErrorMessage = (
+  error: unknown,
+  fallback: string
+): string => {
+  if (!axios.isAxiosError(error)) {
+    if (error instanceof Error) return error.message;
+    return fallback;
+  }
+
+  const axiosError = error as AxiosError<ApiErrorPayload>;
+  const status = axiosError.response?.status;
+  const payload = axiosError.response?.data;
+
+  const primary =
+    stringifyApiErrorDetails(payload?.error) ??
+    stringifyApiErrorDetails(payload?.message) ??
+    fallback;
+
+  const details =
+    stringifyApiErrorDetails(payload?.details) ??
+    stringifyApiErrorDetails(payload?.issues);
+
+  const parts = [primary];
+  if (details && details !== primary) {
+    parts.push(details);
+  }
+  if (status) {
+    parts.push(`HTTP ${status}`);
+  }
+
+  return parts.join(" | ");
+};
+
 export type AuthUser = {
   userId?: string;
   username: string;
@@ -574,8 +636,7 @@ export const updateFlow = async (
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<{ error?: string }>;
-      throw new Error(axiosError.response?.data?.error || "Backend error");
+      throw new Error(buildApiErrorMessage(error, "Failed to update flow"));
     } else if (error instanceof Error) {
       throw new Error(error.message);
     } else {
