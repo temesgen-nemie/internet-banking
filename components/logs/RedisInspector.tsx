@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteRedisEntry,
+  deleteRedisEntries,
   getRedisEntries,
   getRedisIndexes,
   type RedisEntry,
@@ -31,6 +32,7 @@ export default function RedisInspector() {
   const [loadingIndexes, setLoadingIndexes] = useState(false);
   const [indexesError, setIndexesError] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [deletingDb, setDeletingDb] = useState<number | null>(null);
   const statesRef = useRef<Record<number, RedisState>>({});
 
   useEffect(() => {
@@ -177,6 +179,47 @@ export default function RedisInspector() {
     [loadEntries]
   );
 
+  const handleDeleteAllEntries = useCallback(
+    async (db: number) => {
+      const state = statesRef.current[db] ?? {
+        entries: [],
+        cursor: "0",
+        hasMore: false,
+        loading: false,
+        error: null,
+        pattern: "*",
+      };
+      const pattern = state.pattern || "*";
+      const confirmed =
+        typeof window === "undefined"
+          ? true
+          : window.confirm(
+              `Delete all Redis keys matching "${pattern}" from DB ${db}?`
+            );
+      if (!confirmed) {
+        return;
+      }
+
+      setDeletingDb(db);
+      try {
+        await deleteRedisEntries({ db, pattern });
+        await loadEntries(db, false);
+      } catch (error) {
+        setStates((current) => ({
+          ...current,
+          [db]: {
+            ...(current[db] ?? state),
+            error:
+              error instanceof Error ? error.message : "Failed to delete redis entries.",
+          },
+        }));
+      } finally {
+        setDeletingDb(null);
+      }
+    },
+    [loadEntries]
+  );
+
   const activeState = activeDb !== null ? states[activeDb] : undefined;
   const activeIndex = useMemo(
     () => indexes.find((entry) => entry.db === activeDb) ?? null,
@@ -263,6 +306,14 @@ export default function RedisInspector() {
                   className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 md:w-auto"
                 >
                   Refresh DB {activeIndex.db}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteAllEntries(activeIndex.db)}
+                  disabled={deletingDb === activeIndex.db}
+                  className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                >
+                  {deletingDb === activeIndex.db ? "Deleting..." : "Delete All"}
                 </button>
               </div>
 

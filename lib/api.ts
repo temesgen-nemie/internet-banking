@@ -905,6 +905,32 @@ export const deleteRedisEntry = async (payload: { db: number; key: string }) => 
   }
 };
 
+export const deleteRedisEntries = async (payload: { db: number; pattern?: string }) => {
+  try {
+    const response = await api.delete("/admin/redis/entries", { data: payload });
+    return response.data as {
+      data: {
+        db: number;
+        pattern: string;
+        matched: number;
+        deleted: number;
+      };
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      throw new Error(
+        axiosError.response?.data?.error ||
+          `Failed to delete redis entries (${axiosError.response?.status})`
+      );
+    } else if (error instanceof Error) {
+      throw new Error(error.message);
+    } else {
+      throw new Error("An unknown error occurred");
+    }
+  }
+};
+
 export const getRedisIndexes = async () => {
   try {
     const response = await api.get("/admin/redis/indexes");
