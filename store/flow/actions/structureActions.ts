@@ -340,8 +340,14 @@ export const createStructureActions = ({
         ) {
           const routes = flowNode.nextNode.routes.map((route) => ({
             when: route.when,
-            gotoFlow: route.gotoFlow || route.goto || "",
-            gotoId: route.gotoId,
+            goto: route.gotoId || route.goto || "",
+            gotoFlow: route.gotoFlow || "",
+            gotoId: route.gotoId || route.goto || "",
+            isGoBack: route.isGoBack,
+            toMainMenu: route.toMainMenu,
+            goBackTarget: route.goBackTargetId || route.goBackTarget || "",
+            goBackTargetId: route.goBackTargetId || route.goBackTarget || "",
+            goBackToFlow: route.goBackToFlow,
           }));
           nextData.nextNode = {
             routes,

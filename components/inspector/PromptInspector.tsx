@@ -10,6 +10,8 @@ type PromptInspectorProps = {
 
 type PromptRoute = {
   when?: { eq?: string[] };
+  goto?: string;
+  gotoId?: string;
   gotoFlow?: string;
   isGoBack?: boolean;
   toMainMenu?: boolean;
@@ -83,6 +85,7 @@ const stringifyPromptResponseBody = (node: PromptNode): string => {
 export default function PromptInspector({ node, updateNodeData }: PromptInspectorProps) {
   const nodes = useFlowStore((s) => s.nodes);
   const edges = useFlowStore((s) => s.edges);
+  const resolveTargetId = useFlowStore((s) => s.resolveTargetId);
   const [activeSearchIdx, setActiveSearchIdx] = useState<number | null>(null);
   const [activeFlowSearchIdx, setActiveFlowSearchIdx] = useState<number | null>(null);
   const [responseBodyText, setResponseBodyText] = useState(() => stringifyPromptResponseBody(node));
@@ -252,7 +255,9 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
     const routeInputs = new Set(routes.map((r) => r.when?.eq?.[1]).filter((v): v is string => !!v));
 
     const routeEndpoints = new Set(
-      routes.map((r) => (r.gotoFlow || "").trim().toLowerCase()).filter(Boolean)
+      routes
+        .map((r) => (r.gotoFlow || "").trim().toLowerCase())
+        .filter(Boolean)
     );
 
     for (const line of lines) {
@@ -299,6 +304,10 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
         if (!name) {
           if (isGoBack) name = "Go Back";
           else if (isMainMenu) name = "Main Menu";
+          else if (r.gotoId || r.goto) {
+            const resolved = resolveTargetId(String(r.gotoId || r.goto || ""));
+            name = resolved.name || "";
+          }
         }
 
         if (input && name) return `${input}. ${name}`;
@@ -475,7 +484,10 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                   }
 
                   const routes = currentNextNode.routes || [];
-                  const newRoutes = [...routes, { when: { eq: ["{{input}}", ""] }, gotoFlow: "" }];
+                  const newRoutes = [
+                    ...routes,
+                    { when: { eq: ["{{input}}", ""] }, goto: "", gotoFlow: "", gotoId: "" },
+                  ];
 
                   const newMessage = syncMessage(node.data.message || "", newRoutes);
 
@@ -503,7 +515,18 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
 
                 return routes.map((route, idx) => {
                   const inputValue = route.when?.eq?.[1] || "";
-                  const gotoFlow = (route as any).gotoFlow || (route as any).goto || "";
+                  const targetId = String((route as any).gotoId || (route as any).goto || "");
+                  const resolvedTarget = targetId ? resolveTargetId(targetId) : { id: "", name: "" };
+                  const targetNode = targetId
+                    ? nodes.find((candidate) => candidate.id === targetId)
+                    : undefined;
+                  const isConnectedGroupTarget =
+                    Boolean(targetNode) &&
+                    targetNode?.type === "group" &&
+                    Boolean((targetNode.data as any)?.isMenuBranch);
+                  const gotoFlow = isConnectedGroupTarget
+                    ? (route as any).gotoFlow || resolvedTarget.name || ""
+                    : resolvedTarget.name || "";
                   const isGoBack = (route as any).isGoBack || false;
                   const isToMainMenu =
                     (route as any).toMainMenu || (route as any).isMainMenu || false;
@@ -610,7 +633,9 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                                 const newRoutes = [...(nextNode.routes || [])];
                                 newRoutes[idx] = {
                                   ...newRoutes[idx],
-                                  gotoFlow: e.target.value,
+                                  ...(isConnectedGroupTarget
+                                    ? { gotoFlow: e.target.value }
+                                    : { gotoFlow: "", goto: targetId, gotoId: targetId }),
                                 };
                                 const newMessage = syncMessage(node.data.message || "", newRoutes);
                                 updateNodeData(node.id, {

@@ -414,7 +414,7 @@ export default function FlowCanvas() {
             }
 
             interface PromptNextNode {
-              routes?: { when?: { eq?: string[] }; gotoFlow?: string; gotoId?: string }[];
+              routes?: { when?: { eq?: string[] }; goto?: string; gotoFlow?: string; gotoId?: string }[];
               default?: string;
             }
             const nextNode = sourceNode.data.nextNode as PromptNextNode;
@@ -451,33 +451,21 @@ export default function FlowCanvas() {
                     updateNodeData(startNode.id, { flowName: finalName });
                   }
                 } else if (targetNode && targetNode.type !== "group") {
-                  // NEW: Rename non-group target node to match the route's value
-                  // We prioritize ONLY gotoFlow as per user request
-                  const newName = route.gotoFlow;
-
-                  if (!newName) {
-                    toast.error("Invalid Branch", {
-                      description: "Please define a name in the branch.",
-                      duration: 4000,
-                    });
-                    return; // REJECT/ABORT SYNC if no name
-                  }
-                  finalName = newName;
-                  updateNodeData(targetNode.id, { name: finalName });
+                  finalName = "";
                 } else {
                   // Fallback / legacy non-branch
-                  finalName =
-                    route.gotoFlow ||
-                    (targetNode?.data.name && targetNode.data.name !== "Untitled Group"
-                      ? targetNode.data.name
-                      : "");
+                  finalName = "";
                 }
 
                 // Update the route itself with the final name (without goto prefix)
                 newRoutes[routeIdx] = {
                   ...route,
-                  gotoFlow: finalName || targetNode?.id || "",
-                  gotoId: finalName ? targetNode?.id : "",
+                  goto: targetNode && targetNode.type !== "group" ? params.target || "" : "",
+                  gotoFlow:
+                    targetNode && targetNode.type === "group" && targetNode.data.isMenuBranch
+                      ? finalName || ""
+                      : "",
+                  gotoId: params.target || "",
                 };
                 updateNodeData(sourceNode.id, {
                   nextNode: { ...nextNode, routes: newRoutes },
@@ -592,6 +580,7 @@ export default function FlowCanvas() {
             // It's a specific route handle (route-0, route-1)
             interface ConditionRoute {
               goto?: string;
+              gotoId?: string;
               when?: any;
             }
             interface ConditionNext {
@@ -605,18 +594,10 @@ export default function FlowCanvas() {
             if (nextNode && nextNode.routes && nextNode.routes[routeIdx]) {
               const newRoutes = [...nextNode.routes];
 
-              // Helper: Resolve Target Name
-              const targetNode = nodes.find((n) => n.id === params.target);
-              let targetName = targetNode?.data.name;
-
-              // Use ID if no name
-              if (!targetName || targetName === "Untitled Group") {
-                targetName = params.target;
-              }
-
               newRoutes[routeIdx] = {
                 ...newRoutes[routeIdx],
-                goto: String(targetName),
+                goto: params.target || "",
+                gotoId: params.target || "",
               };
 
               updateNodeData(sourceNode.id, {
@@ -757,7 +738,7 @@ export default function FlowCanvas() {
             return; // REJECT CONNECTION
           }
           updateNodeData(sourceNode.id, {
-            entryNode: String(targetNode?.data?.name || ""),
+            entryNode: params.target || "",
             entryNodeId: params.target || "",
           });
         }

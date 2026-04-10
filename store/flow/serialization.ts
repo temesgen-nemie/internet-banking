@@ -316,13 +316,33 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               return routeObj;
             }
 
-            const target = resolveTarget(route.gotoFlow || route.gotoId || route.goto || "");
+            const target = resolveTarget(route.gotoId || route.goto || route.gotoFlow || "");
             const targetType = typeById.get(target.id);
             const isGroup = targetType === "group";
+            const groupChildren = target.id
+              ? nodes.filter((candidate) => candidate.parentNode === target.id)
+              : [];
+            const groupStartNode = groupChildren.find(
+              (candidate) => candidate.type === "start"
+            );
+            const groupFlowName = String(
+              (groupStartNode?.data as Record<string, unknown> | undefined)?.flowName ??
+                target.name ??
+                route.gotoFlow ??
+                ""
+            );
+
+            if (isGroup) {
+              return {
+                when,
+                gotoFlow: groupFlowName,
+                gotoId: target.id || "",
+              } as FlowRoute;
+            }
 
             return {
               when,
-              [isGroup ? "gotoFlow" : "goto"]: isGroup ? target.name || "" : target.id || "",
+              goto: target.id || "",
               gotoId: target.id || "",
             } as FlowRoute;
           });

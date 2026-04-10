@@ -143,21 +143,13 @@ export const useFlowStore = create<FlowState>()(
         const { nodes } = get();
         if (!id) return { id: "", name: "" };
 
-        let currentId = id;
-
-        // Initial lookup: If not found as ID, maybe it's a Name
-        const nodeById = nodes.find(n => n.id === currentId);
-        if (!nodeById) {
-          const nodeByName = nodes.find(n => n.data?.name === currentId);
-          if (nodeByName) {
-            currentId = nodeByName.id;
-          }
-        }
-
-        const finalNode = nodes.find(n => n.id === currentId);
+        const finalNode = nodes.find((n) => n.id === id);
         return {
-          id: currentId,
-          name: finalNode?.data?.name || (finalNode?.type === "start" ? "Flow Entry" : "") || ""
+          id,
+          name:
+            finalNode?.data?.name ||
+            (finalNode?.type === "start" ? "Flow Entry" : "") ||
+            "",
         };
       },
 

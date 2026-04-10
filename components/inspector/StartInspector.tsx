@@ -35,7 +35,7 @@ export default function StartInspector({
       </div>
 
       <TargetNodeDisplay
-        nodeId={node.data.entryNodeId || node.data.entryNode}
+        nodeId={node.data.entryNodeId || ""}
         label="Entry Node"
         title="Connect the Start Node to the first node of your flow"
       />

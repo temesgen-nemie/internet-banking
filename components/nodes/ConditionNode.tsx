@@ -5,6 +5,7 @@ import { useFlowStore } from "@/store/flow/flowStore";
 type ConditionRoute = {
   when?: Record<string, [string, string | number]>;
   goto?: string;
+  gotoId?: string;
 };
 
 type ConditionNextNode = {

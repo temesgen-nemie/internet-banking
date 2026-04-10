@@ -867,25 +867,6 @@ updateNodeData: (id, data: Partial<Record<string, unknown>>) =>
                 }
                 return n;
               });
-            } else if (connectedNode && connectedNode.type !== "group") {
-              // NEW: Sync name for non-group nodes
-              const when = route.when as { eq?: string[] } | undefined;
-              const newName = route.gotoFlow || when?.eq?.[1];
-
-              if (!newName) {
-                toast.error("Invalid Branch", {
-                  description: "Please define a name in the branch.",
-                  duration: 4000
-                });
-                return;
-              }
-
-              nextNodes = nextNodes.map((n) => {
-                if (n.id === connectedNode.id) {
-                  return { ...n, data: { ...n.data, name: newName } };
-                }
-                return n;
-              });
             }
           }
         });
@@ -969,13 +950,18 @@ isNameTaken: (name, excludeId) => {
     ? nodes.find((n) => n.id === excludeId)
     : null;
   const parentId = targetNode ? targetNode.parentNode : currentSubflowId;
+  const shouldEnforceUniqueness =
+    !targetNode || targetNode.type === "group" || targetNode.type === "start";
+
+  if (!shouldEnforceUniqueness) {
+    return false;
+  }
 
   return nodes.some(
     (n) =>
       n.id !== excludeId &&
       n.parentNode === parentId && // Must be in the same group
-      n.type !== "group" && // Skip group nodes (as requested: group node can have any name)
-      // Check both standard 'name' and Start node's 'flowName'
+      (n.type === "group" || n.type === "start") &&
       (String((n.data as Record<string, unknown>)?.name ?? "")
         .trim()
         .toLowerCase() === trimmed ||

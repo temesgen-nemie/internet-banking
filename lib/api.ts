@@ -756,35 +756,6 @@ export const deleteFlow = async (flowName: string) => {
   }
 };
 
-export const updateNodeInFlow = async (
-  flowName: string,
-  nodeName: string,
-  nodeData: FlowNode,
-  previousName?: string
-) => {
-  try {
-    const response = await api.put(
-      `/flows/${encodeURIComponent(flowName)}/nodes/${encodeURIComponent(nodeName)}`,
-      {
-        flowName,
-        nodeName,
-        previousName,
-        node: nodeData,
-      }
-    );
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<{ error?: string }>;
-      throw new Error(axiosError.response?.data?.error || "Backend error");
-    } else if (error instanceof Error) {
-      throw new Error(error.message);
-    } else {
-      throw new Error("An unknown error occurred");
-    }
-  }
-};
-
 export const getLogs = async (params: { from: string; to: string; limit: number }) => {
   try {
     const response = await api.get("/admin/logs", { params });

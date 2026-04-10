@@ -7,10 +7,7 @@ type TargetNodeRef =
   | string
   | {
       defaultId?: string;
-      default?: string;
       gotoId?: string;
-      gotoFlow?: string;
-      goto?: string;
     }
   | null
   | undefined;
@@ -37,7 +34,7 @@ export default function TargetNodeDisplay({
       return id;
     }
     if (typeof id === "object") {
-      return (id.defaultId || id.default || id.gotoId || id.gotoFlow || id.goto || "") as string;
+      return (id.defaultId || id.gotoId || "") as string;
     }
     return "";
   };

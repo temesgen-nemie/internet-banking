@@ -522,14 +522,11 @@ export const createRemoteFlowActions = ({
 
     if (!flowNode) return;
 
-    const currentName = flowNode.name || "";
-    const targetNodeNameInUrl = previousName || currentName;
-
-    if (!targetNodeNameInUrl) return;
+    const currentName = flowNode.name || nodeId;
 
     try {
-      const { updateNodeInFlow } = await import("@/lib/api");
-      toast.promise(updateNodeInFlow(flowName, targetNodeNameInUrl, flowNode, previousName), {
+      const { updateNodeById } = await import("@/lib/api");
+      toast.promise(updateNodeById(nodeId, { node: flowNode }), {
         loading: `Syncing changes from '${currentName}'...`,
         success: () => {
           const { modifiedGroupIds } = get();

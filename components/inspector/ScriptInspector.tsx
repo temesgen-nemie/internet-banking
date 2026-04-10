@@ -14,7 +14,7 @@ type ScriptRoute = {
   id: string;
   key?: string;
   nextNodeId?: string;
-  nextNodeName?: string;
+  nextNodeRef?: string;
 };
 
 export default function ScriptInspector({ node, updateNodeData }: ScriptInspectorProps) {
@@ -35,7 +35,7 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
   };
 
   const parseScriptRoutes = (script: string) => {
-    const matches: Array<{ condition: string; nextName: string }> = [];
+    const matches: Array<{ condition: string; nextRef: string }> = [];
     const len = script.length;
 
     const isIdentChar = (ch: string) => /[A-Za-z0-9_$]/.test(ch);
@@ -198,16 +198,16 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
       };
     };
 
-    const seenNextNames = new Set<string>();
-    const nextNodeRegex = /nextNode\s*:\s*["'`]([^"'`]+)["'`]/g;
+    const seenNextRefs = new Set<string>();
+    const nextNodeRegex = /nextNode(?:Id)?\s*:\s*["'`]([^"'`]+)["'`]/g;
 
     const addFromBlock = (block: string, condition: string) => {
       let match: RegExpExecArray | null;
       while ((match = nextNodeRegex.exec(block))) {
-        const nextName = match[1]?.trim();
-        if (!nextName || seenNextNames.has(nextName)) continue;
-        seenNextNames.add(nextName);
-        matches.push({ condition, nextName });
+        const nextRef = match[1]?.trim();
+        if (!nextRef || seenNextRefs.has(nextRef)) continue;
+        seenNextRefs.add(nextRef);
+        matches.push({ condition, nextRef });
       }
       nextNodeRegex.lastIndex = 0;
     };
@@ -300,10 +300,10 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
           /^nextNode\s*:\s*["'`]([^"'`]+)["'`]/
         );
         if (nextNodeMatch?.[1]) {
-          const nextName = nextNodeMatch[1].trim();
-          if (!seenNextNames.has(nextName)) {
-            seenNextNames.add(nextName);
-            matches.push({ condition: "", nextName });
+          const nextRef = nextNodeMatch[1].trim();
+          if (!seenNextRefs.has(nextRef)) {
+            seenNextRefs.add(nextRef);
+            matches.push({ condition: "", nextRef });
           }
           i += nextNodeMatch[0].length;
           continue;
@@ -381,37 +381,22 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
     const unresolved: string[] = [];
 
     const nextRoutes: ScriptRoute[] = parsed.map((item) => {
-      const targetName = item.nextName.trim();
+      const targetRef = item.nextRef.trim();
       const existingRoute = routes.find((route) => {
-        const storedName = String(route.nextNodeName ?? "").trim();
-        if (storedName && storedName === targetName) return true;
-        if (!route.nextNodeId) return false;
-        const targetNode = scopedNodes.find((n) => n.id === route.nextNodeId);
-        const nodeName = String(
-          (targetNode?.data as Record<string, unknown>)?.name ?? ""
-        ).trim();
-        return nodeName && nodeName === targetName;
+        return (
+          String(route.nextNodeRef ?? "").trim() === targetRef ||
+          String(route.nextNodeId ?? "").trim() === targetRef
+        );
       });
-      const candidates = scopedNodes.filter((n) => {
-        const nodeName = String((n.data as Record<string, unknown>)?.name ?? "").trim();
-        if (nodeName && nodeName === targetName) return true;
-        if (n.type === "group") {
-          const children = scopedNodes.filter((child) => child.parentNode === n.id);
-          const startNode = children.find((child) => child.type === "start");
-          const flowName = String((startNode?.data as { flowName?: string } | undefined)?.flowName ?? "").trim();
-          return flowName && flowName === targetName;
-        }
-        return false;
-      });
-      const nextNodeId = candidates.length === 1 ? candidates[0].id : "";
+      const nextNodeId = scopedNodes.some((n) => n.id === targetRef) ? targetRef : "";
       if (!nextNodeId) {
-        unresolved.push(item.nextName || "(empty)");
+        unresolved.push(item.nextRef || "(empty)");
       }
       return {
-        id: existingRoute?.id || hashId(item.nextName),
+        id: existingRoute?.id || hashId(item.nextRef),
         key: existingRoute?.key ?? item.condition,
         nextNodeId,
-        nextNodeName: targetName,
+        nextNodeRef: targetRef,
       };
     });
 
@@ -423,7 +408,7 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
           route?.id === next?.id &&
           String(route?.key ?? "") === String(next?.key ?? "") &&
           String(route?.nextNodeId ?? "") === String(next?.nextNodeId ?? "") &&
-          String(route?.nextNodeName ?? "") === String(next?.nextNodeName ?? "")
+          String(route?.nextNodeRef ?? "") === String(next?.nextNodeRef ?? "")
         );
       });
 
@@ -490,7 +475,7 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
 
         {routes.length === 0 ? (
           <div className="mt-2 text-[10px] text-gray-400">
-            No routes detected yet. Add a return with nextNode in the script.
+            No routes detected yet. Add a return with `nextNodeId` in the script.
           </div>
         ) : (
           <div className="mt-3 space-y-2">

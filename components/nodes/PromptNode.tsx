@@ -3,6 +3,8 @@ import { useFlowStore } from "@/store/flow/flowStore";
 
 type PromptRoute = {
   when?: { eq?: string[] };
+  goto?: string;
+  gotoId?: string;
   gotoFlow?: string;
   isGoBack?: boolean;
   isMainMenu?: boolean;
@@ -139,7 +141,12 @@ export default function PromptNode({ id, data, selected }: PromptNodeProps) {
               // If it's a logic route (go back or main menu), we don't show the handle
               const showHandle = !isGoBack && !isMainMenu;
 
-              let label = route.gotoFlow || "Target";
+              let label =
+                route.gotoFlow ||
+                (route.gotoId || route.goto
+                  ? resolveTargetId(String(route.gotoId || route.goto || "")).name
+                  : "") ||
+                "Target";
               if (isGoBack) label = "Go Back";
               if (isMainMenu) label = "Main Menu";
               if (!isGoBack && !isMainMenu && isActuallyConnected) {
