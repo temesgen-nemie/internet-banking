@@ -371,7 +371,7 @@ export const createRemoteFlowActions = ({
       const nextFlowNodes = visualState.nodes
         .filter((bn: Node) => bn.id !== groupId)
         .map((bn: Node) => {
-          const freshLogicalData = logicalDataMap.get(bn.id);
+          const freshLogicalData = logicalDataMap.get(bn.id) ?? {};
           const parentNode = bn.parentNode || groupId;
           return {
             ...bn,
@@ -384,7 +384,7 @@ export const createRemoteFlowActions = ({
 
       const finalOtherNodes = otherNodes.map((n: Node) => {
         if (n.id === groupId && backendGroupNode) {
-          const freshLogicalData = logicalDataMap.get(n.id);
+          const freshLogicalData = logicalDataMap.get(n.id) ?? {};
           const absolutePosition = (backendGroupNode as Node & {
             positionAbsolute?: { x: number; y: number };
           }).positionAbsolute;

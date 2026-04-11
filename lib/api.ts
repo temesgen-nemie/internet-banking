@@ -63,6 +63,40 @@ type ApiErrorPayload = {
   issues?: unknown;
 };
 
+type FlowPayloadBundle = {
+  kind: "service-flow-bundle";
+  flows?: unknown[];
+};
+
+const isFlowJson = (value: unknown): value is FlowJson => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<FlowJson>;
+  return (
+    typeof candidate.flowName === "string" &&
+    Array.isArray(candidate.nodes) &&
+    typeof candidate.entryNode === "string"
+  );
+};
+
+const isServiceFlowBundle = (value: unknown): value is FlowPayloadBundle => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<FlowPayloadBundle>;
+  return candidate.kind === "service-flow-bundle" && Array.isArray(candidate.flows);
+};
+
+const flattenFlowPayload = (value: unknown): FlowJson[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => flattenFlowPayload(entry));
+  }
+  if (isFlowJson(value)) {
+    return [value];
+  }
+  if (isServiceFlowBundle(value)) {
+    return (value.flows ?? []).flatMap((flow) => flattenFlowPayload(flow));
+  }
+  return [];
+};
+
 const stringifyApiErrorDetails = (value: unknown): string | null => {
   if (value == null) return null;
   if (typeof value === "string") {
@@ -588,8 +622,8 @@ export const changeUserRole = async (payload: {
 
 export const getAllFlows = async () => {
   try {
-    const response = await api.get<{ data: FlowJson[] }>("/allFlows");
-    return response.data.data;
+    const response = await api.get<{ data: unknown }>("/allFlows");
+    return flattenFlowPayload(response.data.data);
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<{ error?: string }>;
@@ -604,10 +638,15 @@ export const getAllFlows = async () => {
 
 export const getFlowByName = async (flowName: string) => {
   try {
-    const response = await api.get<{ data: FlowJson[] }>(
+    const response = await api.get<{ data: unknown }>(
       `/flows/${encodeURIComponent(flowName)}`
     );
-    return response.data.data;
+    const flows = flattenFlowPayload(response.data.data);
+    const matchedFlow = flows.find((flow) => flow.flowName === flowName) ?? flows[0];
+    if (!matchedFlow) {
+      throw new Error(`Flow not found: ${flowName}`);
+    }
+    return matchedFlow;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<{ error?: string }>;
