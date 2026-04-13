@@ -26,7 +26,11 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
   const nextNode = nodes.find((n) => n.id === nextNodeId);
   const routes = (node.data?.routes as ScriptRoute[]) || [];
   const lastWarningKey = useRef<string | null>(null);
+  const scriptTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const lineNumberRef = useRef<HTMLDivElement | null>(null);
   const scriptValue = String(node.data?.script ?? "");
+  const lineCount = Math.max(1, scriptValue.split("\n").length);
+  const lineNumbers = Array.from({ length: lineCount }, (_, index) => index + 1);
 
   const getScriptScopeNodes = () => {
     const current = nodes.find((n) => n.id === node.id) ?? node;
@@ -456,14 +460,33 @@ export default function ScriptInspector({ node, updateNodeData }: ScriptInspecto
         <label className="mb-1 block text-[10px] font-bold uppercase text-gray-400">
           Script
         </label>
-        <textarea
-          className="w-full resize-y rounded-lg border-2 border-gray-100 bg-gray-50/50 px-3 py-2 text-sm text-gray-900 transition-all focus:border-cyan-400 focus:bg-white focus:outline-none"
-          rows={8}
-          value={scriptValue}
-          onChange={(e) => updateNodeData(node.id, { script: e.target.value })}
-          spellCheck={false}
-          placeholder="Write your script here..."
-        />
+        <div className="flex overflow-hidden rounded-lg border-2 border-gray-100 bg-gray-50/50 transition-all focus-within:border-cyan-400 focus-within:bg-white">
+          <div
+            ref={lineNumberRef}
+            aria-hidden="true"
+            className="select-none overflow-hidden border-r border-gray-200 bg-[#111111] px-3 py-2 font-mono text-sm leading-6 text-amber-300"
+          >
+            {lineNumbers.map((line) => (
+              <div key={line} className="text-right">
+                {line}
+              </div>
+            ))}
+          </div>
+          <textarea
+            ref={scriptTextareaRef}
+            className="min-h-[192px] w-full resize-y bg-transparent px-3 py-2 font-mono text-sm leading-6 text-gray-900 outline-none"
+            rows={8}
+            value={scriptValue}
+            onChange={(e) => updateNodeData(node.id, { script: e.target.value })}
+            onScroll={(e) => {
+              if (lineNumberRef.current) {
+                lineNumberRef.current.scrollTop = e.currentTarget.scrollTop;
+              }
+            }}
+            spellCheck={false}
+            placeholder="Write your script here..."
+          />
+        </div>
       </div>
 
       <div className="rounded-lg border border-gray-100 bg-white/80 p-3">
