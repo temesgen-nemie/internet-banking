@@ -95,12 +95,14 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
       persist: boolean;
       common: boolean;
       encrypt: boolean;
+      mask: boolean;
     }>
   >(() => {
     const mapping = node.data.responseMapping || {};
     const persisted = new Set(node.data.persistResponseMappingKeys || []);
     const commonManaged = new Set(node.data.commonManagerResponseMappingKeys || []);
     const encrypted = new Set(node.data.encryptResponseMappingKeys || []);
+    const masked = new Set(node.data.maskedResponseMappingKeys || []);
     return Object.entries(mapping).map(([key, value]) => ({
       id: Math.random().toString(36).substr(2, 9),
       key,
@@ -108,6 +110,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
       persist: persisted.has(key),
       common: commonManaged.has(key),
       encrypt: encrypted.has(key),
+      mask: masked.has(key),
     }));
   });
   const [apiBodyError, setApiBodyError] = React.useState<string | null>(null);
@@ -540,18 +543,21 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
         persist: boolean;
         common: boolean;
         encrypt: boolean;
+        mask: boolean;
       }>
     ) => {
       const mapping: Record<string, string> = {};
       const persistKeys: string[] = [];
       const commonManagerKeys: string[] = [];
       const encryptKeys: string[] = [];
+      const maskedKeys: string[] = [];
       pairs.forEach((pair) => {
         if (pair.key.trim()) {
           mapping[pair.key] = pair.value;
           if (pair.persist) persistKeys.push(pair.key.trim());
           if (pair.common) commonManagerKeys.push(pair.key.trim());
           if (pair.encrypt) encryptKeys.push(pair.key.trim());
+          if (pair.mask) maskedKeys.push(pair.key.trim());
         }
       });
       updateNodeData(node.id, {
@@ -559,6 +565,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
         persistResponseMappingKeys: persistKeys,
         commonManagerResponseMappingKeys: commonManagerKeys,
         encryptResponseMappingKeys: encryptKeys,
+        maskedResponseMappingKeys: maskedKeys,
         persistManager: commonManagerKeys.length > 0 ? "commonManager" : "inputManager",
       });
     },
@@ -1510,6 +1517,7 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                         persist: false,
                         common: false,
                         encrypt: false,
+                        mask: false,
                       },
                     ];
                     setMappingPairs(next);
@@ -1519,9 +1527,9 @@ export default function ActionInspector({ node, updateNodeData }: ActionInspecto
                     setMappingPairs(next);
                     syncResponseMapping(next);
                   }}
-                  onUpdate={(id, key, value, persist, common, encrypt) => {
+                  onUpdate={(id, key, value, persist, common, encrypt, mask) => {
                     const next = mappingPairs.map((pair) =>
-                      pair.id === id ? { ...pair, key, value, persist, common, encrypt } : pair
+                      pair.id === id ? { ...pair, key, value, persist, common, encrypt, mask } : pair
                     );
                     setMappingPairs(next);
                     syncResponseMapping(next);

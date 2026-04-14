@@ -9,6 +9,7 @@ type ResponseMappingEditorProps = {
     persist?: boolean;
     common?: boolean;
     encrypt?: boolean;
+    mask?: boolean;
   }>;
   options: string[];
   inputManagerSaveSessionId: string;
@@ -21,7 +22,8 @@ type ResponseMappingEditorProps = {
     value: string,
     persist: boolean,
     common: boolean,
-    encrypt: boolean
+    encrypt: boolean,
+    mask: boolean
   ) => void;
   onInputManagerSaveSessionIdChange: (value: string) => void;
   onCommonManagerSaveSessionIdChange: (value: string) => void;
@@ -91,7 +93,7 @@ export default function ResponseMappingEditor({
           return (
             <div
               key={mapping.id}
-              className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-2 items-center"
+              className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-2 items-center"
             >
               <input
                 className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm"
@@ -104,7 +106,8 @@ export default function ResponseMappingEditor({
                       mapping.value,
                       !!mapping.persist,
                       !!mapping.common,
-                      !!mapping.encrypt
+                      !!mapping.encrypt,
+                      !!mapping.mask
                     )
                   }
                 />
@@ -121,7 +124,8 @@ export default function ResponseMappingEditor({
                         e.target.value,
                         !!mapping.persist,
                         !!mapping.common,
-                        !!mapping.encrypt
+                        !!mapping.encrypt,
+                        !!mapping.mask
                       )
                     }
                     autoFocus
@@ -169,7 +173,8 @@ export default function ResponseMappingEditor({
                         e.target.value,
                         !!mapping.persist,
                         !!mapping.common,
-                        !!mapping.encrypt
+                        !!mapping.encrypt,
+                        !!mapping.mask
                       );
                     }
                   }}
@@ -202,7 +207,8 @@ export default function ResponseMappingEditor({
                       mapping.value,
                       e.target.checked,
                       !!mapping.common,
-                      !!mapping.encrypt
+                      !!mapping.encrypt,
+                      !!mapping.mask
                     )
                   }
                   className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -220,7 +226,8 @@ export default function ResponseMappingEditor({
                       mapping.value,
                       !!mapping.persist,
                       e.target.checked,
-                      !!mapping.encrypt
+                      !!mapping.encrypt,
+                      !!mapping.mask
                     )
                   }
                   className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -238,12 +245,32 @@ export default function ResponseMappingEditor({
                       mapping.value,
                       !!mapping.persist,
                       !!mapping.common,
-                      e.target.checked
+                      e.target.checked,
+                      !!mapping.mask
                     )
                   }
                   className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="text-[10px] text-gray-400 font-medium uppercase">Encrypt</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-1" title="Redact this mapped value in logs">
+                <input
+                  type="checkbox"
+                  checked={!!mapping.mask}
+                  onChange={(e) =>
+                    onUpdate(
+                      mapping.id,
+                      mapping.key,
+                      mapping.value,
+                      !!mapping.persist,
+                      !!mapping.common,
+                      !!mapping.encrypt,
+                      e.target.checked
+                    )
+                  }
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-[10px] text-gray-400 font-medium uppercase">Mask</span>
               </div>
               <button
                 className="text-xs text-gray-400 hover:text-red-500 px-2"

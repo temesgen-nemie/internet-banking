@@ -474,6 +474,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               )
             : undefined,
           persistResponseMappingKeys: (data.persistResponseMappingKeys as string[]) || undefined,
+          maskedResponseMappingKeys: (data.maskedResponseMappingKeys as string[]) || undefined,
           encryptResponseMappingKeys: (data.encryptResponseMappingKeys as string[]) || undefined,
           nextNode: {
             routes,
@@ -651,6 +652,11 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
               : undefined,
           persistResponseMappingKeys: Array.isArray(data.persistResponseMappingKeys)
             ? (data.persistResponseMappingKeys as unknown[])
+                .map((value) => String(value ?? "").trim())
+                .filter(Boolean)
+            : undefined,
+          maskedResponseMappingKeys: Array.isArray(data.maskedResponseMappingKeys)
+            ? (data.maskedResponseMappingKeys as unknown[])
                 .map((value) => String(value ?? "").trim())
                 .filter(Boolean)
             : undefined,

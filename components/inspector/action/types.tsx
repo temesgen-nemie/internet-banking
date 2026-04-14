@@ -31,6 +31,7 @@ export type ActionNodeData = {
   headers?: Record<string, unknown>;
   responseMapping?: Record<string, unknown>;
   persistResponseMappingKeys?: string[];
+  maskedResponseMappingKeys?: string[];
   commonManagerResponseMappingKeys?: string[];
   encryptResponseMappingKeys?: string[];
   persistManager?: "inputManager" | "commonManager";

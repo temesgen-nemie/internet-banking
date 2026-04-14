@@ -19,6 +19,7 @@ type RouterInspectorProps = {
       sessionMode?: RouterSessionMode;
       responseMapping?: Record<string, string>;
       persistResponseMappingKeys?: string[];
+      maskedResponseMappingKeys?: string[];
       inputManagerSaveSessionId?: string;
       headers?: Record<string, unknown>;
       apiBody?: Record<string, unknown>;
@@ -63,6 +64,7 @@ type MappingRow = {
   key: string;
   value: string;
   persist: boolean;
+  mask: boolean;
 };
 
 const SESSION_MODE_OPTIONS: Array<{
@@ -199,13 +201,15 @@ export default function RouterInspector({
   const toMappingRows = React.useCallback(() => {
     const mapping = node.data.responseMapping || {};
     const persisted = new Set(node.data.persistResponseMappingKeys || []);
+    const masked = new Set(node.data.maskedResponseMappingKeys || []);
     return Object.entries(mapping).map(([key, value], idx) => ({
       id: `map-init-${idx}-${key}`,
       key,
       value: String(value ?? ""),
       persist: persisted.has(key),
+      mask: masked.has(key),
     }));
-  }, [node.data.persistResponseMappingKeys, node.data.responseMapping]);
+  }, [node.data.maskedResponseMappingKeys, node.data.persistResponseMappingKeys, node.data.responseMapping]);
   const [mappingRows, setMappingRows] = React.useState<MappingRow[]>(toMappingRows);
 
   React.useEffect(() => {
@@ -286,8 +290,17 @@ export default function RouterInspector({
   }, [bodyMode, ensureFormRows, node.data.apiBody, node.data.apiBodyRaw, parseFormEncodedBody]);
 
   const responseMappingSignature = React.useMemo(
-    () => JSON.stringify(node.data.responseMapping || {}),
-    [node.data.responseMapping]
+    () =>
+      JSON.stringify({
+        mapping: node.data.responseMapping || {},
+        persist: node.data.persistResponseMappingKeys || [],
+        mask: node.data.maskedResponseMappingKeys || [],
+      }),
+    [
+      node.data.maskedResponseMappingKeys,
+      node.data.persistResponseMappingKeys,
+      node.data.responseMapping,
+    ]
   );
   const lastResponseMappingSignatureRef = React.useRef(responseMappingSignature);
 
@@ -304,6 +317,7 @@ export default function RouterInspector({
     (rows: MappingRow[]) => {
       const nextMapping: Record<string, string> = {};
       const nextPersistKeys: string[] = [];
+      const nextMaskedKeys: string[] = [];
       rows.forEach((row) => {
         const key = row.key.trim();
         if (!key) return;
@@ -311,11 +325,15 @@ export default function RouterInspector({
         if (row.persist) {
           nextPersistKeys.push(key);
         }
+        if (row.mask) {
+          nextMaskedKeys.push(key);
+        }
       });
       lastResponseMappingSignatureRef.current = JSON.stringify(nextMapping);
       updateNodeData(node.id, {
         responseMapping: Object.keys(nextMapping).length > 0 ? nextMapping : {},
         persistResponseMappingKeys: nextPersistKeys,
+        maskedResponseMappingKeys: nextMaskedKeys,
       });
     },
     [node.id, updateNodeData]
@@ -412,12 +430,13 @@ export default function RouterInspector({
   const addMappingRow = () => {
     setMappingRows((prev) => [
       ...prev,
-      {
-        id: `map-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        key: "",
-        value: "",
-        persist: false,
-      },
+        {
+          id: `map-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          key: "",
+          value: "",
+          persist: false,
+          mask: false,
+        },
     ]);
   };
 
@@ -648,6 +667,15 @@ export default function RouterInspector({
                           className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
                         />
                         Persist to Input Manager
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-[11px] font-medium text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={row.mask}
+                          onChange={(e) => updateMappingRow(idx, { mask: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        Mask in Logs
                       </label>
                     </div>
                     <input
