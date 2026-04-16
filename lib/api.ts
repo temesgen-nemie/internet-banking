@@ -807,7 +807,9 @@ export const updateFlowSettings = async (payload: FlowSettingsPayload) => {
 
 export const deleteFlow = async (flowName: string) => {
   try {
-    const response = await api.delete(`/flows/${encodeURIComponent(flowName)}`);
+    const response = await api.delete("/flows", {
+      data: { flowName },
+    });
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
