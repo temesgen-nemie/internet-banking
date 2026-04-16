@@ -21,6 +21,43 @@ const getVisualStateArrays = (flow?: FlowJson) => {
   return { nodes, edges };
 };
 
+const getPublishedStartNodeForFlow = (flow: FlowJson): Node | undefined => {
+  const { nodes } = getVisualStateArrays(flow);
+  const startNodes = nodes.filter((node: Node) => node.type === "start");
+  if (startNodes.length === 0) {
+    return undefined;
+  }
+
+  const requestedFlowName = String(flow.flowName || "").trim();
+  const exactMatch = startNodes.find((node: Node) => {
+    const candidateFlowName = String(
+      (node.data as Record<string, unknown>)?.flowName || ""
+    ).trim();
+    return candidateFlowName === requestedFlowName;
+  });
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const rootServiceGroup = nodes.find(
+    (node: Node) =>
+      node.type === "group" &&
+      !node.parentNode &&
+      String(node.id).startsWith("service-root-")
+  );
+  if (rootServiceGroup) {
+    const rootChildStart = startNodes.find(
+      (node: Node) => node.parentNode === rootServiceGroup.id
+    );
+    if (rootChildStart) {
+      return rootChildStart;
+    }
+  }
+
+  const parentlessStart = startNodes.find((node: Node) => !node.parentNode);
+  return parentlessStart ?? startNodes[0];
+};
+
 const collectGroupSubtree = (groupId: string, nodes: Node[], edges: Edge[]) => {
   const descendants: Node[] = [];
 
@@ -383,8 +420,7 @@ export const createRemoteFlowActions = ({
 
       const publishedGroupIdsFromBackend = flows
         .map((f: FlowJson) => {
-          const { nodes } = getVisualStateArrays(f);
-          const startNode = nodes.find((n) => n.type === "start");
+          const startNode = getPublishedStartNodeForFlow(f);
           return startNode?.parentNode;
         })
         .filter((id): id is string => !!id);
