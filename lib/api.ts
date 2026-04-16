@@ -30,8 +30,7 @@ const isSessionAuthFailure = (error: AxiosError<ApiErrorPayload>): boolean => {
   return (
     message.includes("invalid or expired session") ||
     message.includes("no session provided") ||
-    message.includes("not authenticated") ||
-    message.includes("authentication required")
+    message.includes("not authenticated")
   );
 };
 
