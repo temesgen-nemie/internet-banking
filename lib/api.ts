@@ -8,6 +8,33 @@ const AUTH_STORE_KEY = "ussd-auth";
  
 let isHandlingUnauthorized = false;
 
+const isSessionAuthFailure = (error: AxiosError<ApiErrorPayload>): boolean => {
+  if (error.response?.status !== 401) {
+    return false;
+  }
+
+  const requestUrl = String(error.config?.url ?? "");
+  if (requestUrl.includes("/auth/me") || requestUrl.includes("/auth/logout")) {
+    return true;
+  }
+
+  const payload = error.response?.data;
+  const message = [
+    typeof payload?.error === "string" ? payload.error : "",
+    typeof payload?.message === "string" ? payload.message : "",
+  ]
+    .join(" ")
+    .trim()
+    .toLowerCase();
+
+  return (
+    message.includes("invalid or expired session") ||
+    message.includes("no session provided") ||
+    message.includes("not authenticated") ||
+    message.includes("authentication required")
+  );
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -33,7 +60,7 @@ api.interceptors.response.use(
     if (
       typeof window !== "undefined" &&
       axios.isAxiosError(error) &&
-      error.response?.status === 401
+      isSessionAuthFailure(error)
     ) {
       const hasSession =
         Boolean(window.localStorage.getItem(AUTH_TOKEN_KEY)) ||
@@ -354,12 +381,12 @@ export const getAssignableUsers = async (
   payload: { page: number; pageSize: number }
 ) => {
   try {
-    const response = await api.get(
-      `/admin/flows/${encodeURIComponent(flowName)}/assignable-users`,
-      {
-        params: payload,
-      }
-    );
+    const response = await api.get('/admin/flows/assignable-users', {
+      params: {
+        flowName,
+        ...payload,
+      },
+    });
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -382,10 +409,10 @@ export const assignFlowPermissions = async (
   }
 ) => {
   try {
-    const response = await api.post(
-      `/admin/flows/${encodeURIComponent(flowName)}/permissions/assign`,
-      payload
-    );
+    const response = await api.post('/admin/flows/permissions/assign', {
+      flowName,
+      ...payload,
+    });
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -404,10 +431,10 @@ export const revokeFlowPermissions = async (
   payload: { targetUserId: string; user: { userId: string } }
 ) => {
   try {
-    const response = await api.post(
-      `/admin/flows/${encodeURIComponent(flowName)}/permissions/revoke`,
-      payload
-    );
+    const response = await api.post('/admin/flows/permissions/revoke', {
+      flowName,
+      ...payload,
+    });
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
