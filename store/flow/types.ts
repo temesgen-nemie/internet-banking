@@ -43,7 +43,7 @@ export type FlowNode = {
   sessionStepSessionId?: string;
   script?: string;
   timeoutMs?: number;
-  scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string }>;
+  scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string; gotoFlow?: string }>;
   endpoint?: string;
   url?: string;
   method?: string;
@@ -80,7 +80,7 @@ export type FlowNode = {
   commonManagerSearchValue?: string;
   encryptInput?: boolean;
   responseType?: "CONTINUE" | "END";
-  nextNode?: string | { routes?: FlowRoute[]; default?: string; defaultId?: string };
+  nextNode?: string | { routes?: FlowRoute[]; default?: string; defaultId?: string; defaultFlow?: string };
   nextNodeId?: string;
   isMainMenu?: boolean;
 };

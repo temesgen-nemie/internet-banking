@@ -6,14 +6,19 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
   const { enterSubflow, refreshFlow, isLoading, publishedGroupIds, modifiedGroupIds, openRefreshConfirm } = useFlowStore();
   
   // Get children count from store
-  const { childrenCount, flowName } = useFlowStore(
+  const { childrenCount, flowName, isRootServiceGroup } = useFlowStore(
     useShallow((s) => {
         const children = s.nodes.filter((n) => n.parentNode === id);
         const startNode = children.find(n => n.type === 'start');
+        const currentNode = s.nodes.find((n) => n.id === id);
         const flowName = startNode ? (startNode.data.flowName as string) : null;
         return {
             childrenCount: children.length,
-            flowName
+            flowName,
+            isRootServiceGroup:
+              !currentNode?.parentNode &&
+              (String(currentNode?.id ?? "").startsWith("service-root-") ||
+                startNode?.type === "start"),
         };
     })
   );
@@ -38,12 +43,11 @@ export default function GroupNode({ id, data, selected }: NodeProps) {
         enterSubflow(id);
       }}
     >
-      {/* Target Handle for Menu Branching */}
-      {isMenuBranch && (
+      {!isRootServiceGroup && (
         <Handle
           type="target"
           position={Position.Top}
-          className="border-emerald-500"
+          className={isMenuBranch ? "border-emerald-500" : "border-indigo-500"}
         />
       )}
 

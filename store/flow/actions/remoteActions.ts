@@ -95,11 +95,27 @@ export const createRemoteFlowActions = ({
   get: StoreGet;
 }) => ({
   updatePublishedFlow: async (groupId: string) => {
-    const { nodes, edges, modifiedGroupIds } = get();
+    const { nodes, edges, modifiedGroupIds, lastSyncedSnapshots } = get();
     const { nodesToSave: rawNodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
     const nodesToSave = normalizeGroupFlowNameForPublish(groupId, rawNodesToSave, nodes);
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
-    const flowName = subflowJson.flowName;
+    const nextFlowName = subflowJson.flowName;
+    let previousFlowName = "";
+
+    const previousSnapshot = lastSyncedSnapshots[groupId];
+    if (previousSnapshot) {
+      try {
+        const parsedSnapshot = JSON.parse(previousSnapshot) as {
+          nodes?: Array<{ type?: string; data?: { flowName?: string } }>;
+        };
+        previousFlowName =
+          parsedSnapshot.nodes?.find((node) => node.type === "start")?.data?.flowName?.trim() || "";
+      } catch {
+        previousFlowName = "";
+      }
+    }
+
+    const flowName = previousFlowName || nextFlowName;
 
     if (!flowName) {
       toast.error("Flow name not found. Cannot update.");
@@ -109,12 +125,21 @@ export const createRemoteFlowActions = ({
     try {
       const { updateFlow } = await import("@/lib/api");
       toast.promise(updateFlow(flowName, subflowJson), {
-        loading: `Updating flow '${flowName}'...`,
+        loading: `Updating flow '${nextFlowName}'...`,
         success: () => {
+          const nextSnapshot = calculateFlowSnapshot(groupId, nodes, edges);
           set({
             modifiedGroupIds: modifiedGroupIds.filter((id: string) => id !== groupId),
+            lastSyncedSnapshots: {
+              ...get().lastSyncedSnapshots,
+              [groupId]: nextSnapshot,
+            },
+            modifiedGroupsLog: {
+              ...get().modifiedGroupsLog,
+              [groupId]: [],
+            },
           });
-          return `Flow '${flowName}' updated successfully!`;
+          return `Flow '${nextFlowName}' updated successfully!`;
         },
         error: (err: unknown) => {
           const message = err instanceof Error ? err.message : "Unknown error";
