@@ -1,23 +1,32 @@
 import React from "react";
 import { useFlowStore } from "../../store/flow/flowStore";
+import { getNamespacedGroupFlowName } from "../../store/flow/serialization";
 
 interface DeleteConfirmModalProps {
+  groupId: string;
   flowName: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
 const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
+  groupId,
   flowName,
   isOpen,
   onClose,
 }) => {
-  const { deletePublishedFlow } = useFlowStore();
+  const { deletePublishedFlow, nodes } = useFlowStore();
 
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    await deletePublishedFlow(flowName);
+    const groupNode = nodes.find((node) => node.id === groupId && node.type === "group");
+    const groupName =
+      typeof groupNode?.data?.name === "string" ? String(groupNode.data.name).trim() : "";
+    const resolvedFlowName =
+      (groupId && getNamespacedGroupFlowName(nodes, groupId, groupName)) || flowName;
+
+    await deletePublishedFlow(resolvedFlowName);
     onClose();
   };
 

@@ -489,6 +489,7 @@ export const createRemoteFlowActions = ({
     const nodesToSave = normalizeGroupFlowNameForPublish(groupId, rawNodesToSave, nodes);
 
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
+    const publishedFlowName = subflowJson.flowName;
 
     try {
       if (!nodesToSave.some((n: Node) => n.type === "start")) {
@@ -498,6 +499,24 @@ export const createRemoteFlowActions = ({
       toast.promise(createFlow(subflowJson), {
         loading: "Publishing to backend...",
         success: () => {
+          const normalizedStartNode = nodesToSave.find(
+            (node: Node) => node.parentNode === groupId && node.type === "start"
+          );
+          if (normalizedStartNode && publishedFlowName) {
+            set({
+              nodes: get().nodes.map((node: Node) =>
+                node.id === normalizedStartNode.id
+                  ? {
+                      ...node,
+                      data: {
+                        ...(node.data as Record<string, unknown>),
+                        flowName: publishedFlowName,
+                      },
+                    }
+                  : node
+              ),
+            });
+          }
           const { publishedGroupIds } = get();
           if (groupId && !publishedGroupIds.includes(groupId)) {
             set({ publishedGroupIds: [...publishedGroupIds, groupId] });

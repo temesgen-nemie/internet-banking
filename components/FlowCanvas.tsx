@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { useFlowStore } from "../store/flow/flowStore";
 import { useAuthStore } from "../store/authStore";
+import { getNamespacedGroupFlowName } from "../store/flow/serialization";
 import {
   checkMyFlowPermission,
   exportServiceFlowBundle,
@@ -81,8 +82,9 @@ export default function FlowCanvas() {
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
+    groupId: string;
     flowName: string;
-  }>({ isOpen: false, flowName: "" });
+  }>({ isOpen: false, groupId: "", flowName: "" });
   const [permissionsDialog, setPermissionsDialog] = useState<{
     open: boolean;
     flowName: string | null;
@@ -125,6 +127,31 @@ export default function FlowCanvas() {
     modifiedGroupIds,
     openRefreshConfirm,
   } = useFlowStore();
+
+  const resolveGroupFlowName = useCallback(
+    (groupId: string): string => {
+      const groupNode = nodes.find((node) => node.id === groupId && node.type === "group");
+      if (!groupNode) {
+        return "";
+      }
+
+      const groupName =
+        typeof groupNode.data?.name === "string" ? String(groupNode.data.name).trim() : "";
+      const namespacedFlowName = getNamespacedGroupFlowName(nodes, groupId, groupName);
+      if (namespacedFlowName) {
+        return namespacedFlowName;
+      }
+
+      const children = nodes.filter((node) => node.parentNode === groupId);
+      const startNode = children.find((node) => node.type === "start");
+      const startFlowName =
+        typeof (startNode?.data as { flowName?: unknown } | undefined)?.flowName === "string"
+          ? String((startNode?.data as { flowName?: string }).flowName).trim()
+          : "";
+      return startFlowName;
+    },
+    [nodes]
+  );
 
   // Filter nodes and edges based on subflow level
   // Strip parentNode reference from visible nodes so React Flow treats them as top-level in drill-down view
@@ -1395,10 +1422,7 @@ export default function FlowCanvas() {
                       View Node JSON
                     </button>
                     {(() => {
-                      const children = nodes.filter((n) => n.parentNode === menu.id);
-                      const startNode = children.find((n) => n.type === "start");
-                      const flowName = (startNode?.data as { flowName?: string } | undefined)
-                        ?.flowName;
+                      const flowName = resolveGroupFlowName(menu.id);
                       if (!user?.isAdmin) return null;
 
                       return (
@@ -1434,10 +1458,7 @@ export default function FlowCanvas() {
                       );
                     })()}
                     {(() => {
-                      // const groupNode = nodes.find((n) => n.id === menu.id);
-                      const children = nodes.filter((n) => n.parentNode === menu.id);
-                      const startNode = children.find((n) => n.type === "start");
-                      const flowName = (startNode?.data as any)?.flowName;
+                      const flowName = resolveGroupFlowName(menu.id);
                       const isPublished = publishedGroupIds.includes(menu.id);
                       const isModified = modifiedGroupIds.includes(menu.id);
 
@@ -1542,7 +1563,7 @@ export default function FlowCanvas() {
                                     return;
                                   }
                                 }
-                                setDeleteModal({ isOpen: true, flowName });
+                                setDeleteModal({ isOpen: true, groupId: menu.id, flowName });
                                 setMenu(null);
                               } catch (error) {
                                 toast.error(
@@ -1594,9 +1615,7 @@ export default function FlowCanvas() {
                           }`}
                           onClick={async () => {
                             if (isUngroupBlocked) return;
-                            const startNode = children.find((n) => n.type === "start");
-                            const flowName = (startNode?.data as { flowName?: string } | undefined)
-                              ?.flowName;
+                            const flowName = resolveGroupFlowName(menu.id);
                             if (!flowName) {
                               toast.error("Flow name not found.");
                               return;
@@ -1744,9 +1763,10 @@ export default function FlowCanvas() {
       <RefreshConfirmModal />
       {deleteModal.isOpen && (
         <DeleteConfirmModal
+          groupId={deleteModal.groupId}
           flowName={deleteModal.flowName}
           isOpen={deleteModal.isOpen}
-          onClose={() => setDeleteModal({ isOpen: false, flowName: "" })}
+          onClose={() => setDeleteModal({ isOpen: false, groupId: "", flowName: "" })}
         />
       )}
       <FlowPermissionsDialog
