@@ -694,8 +694,11 @@ export const updateFlow = async (
 ) => {
   try {
     const response = await api.post(
-      `/flows/updateFlows/${encodeURIComponent(flowName)}`,
-      payload,
+      `/flows/updateFlows`,
+      {
+        ...payload,
+        currentFlowName: flowName,
+      },
       operation ? { params: { operation } } : undefined
     );
     return response.data;
