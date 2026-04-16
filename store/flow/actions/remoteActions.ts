@@ -46,6 +46,14 @@ const collectGroupSubtree = (groupId: string, nodes: Node[], edges: Edge[]) => {
   return { nodesToSave, relevantEdges };
 };
 
+const isRootServiceGroup = (groupId: string, allNodes: Node[]): boolean => {
+  const groupNode = allNodes.find((node) => node.id === groupId);
+  if (!groupNode || groupNode.type !== "group") {
+    return false;
+  }
+  return !groupNode.parentNode && String(groupNode.id).startsWith("service-root-");
+};
+
 const normalizeGroupFlowNameForPublish = (
   groupId: string,
   nodesToSave: Node[],
@@ -96,8 +104,13 @@ export const createRemoteFlowActions = ({
 }) => ({
   updatePublishedFlow: async (groupId: string) => {
     const { nodes, edges, modifiedGroupIds, lastSyncedSnapshots } = get();
-    const { nodesToSave: rawNodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
-    const nodesToSave = normalizeGroupFlowNameForPublish(groupId, rawNodesToSave, nodes);
+    const isRootGroup = isRootServiceGroup(groupId, nodes);
+    const { nodesToSave: rawNodesToSave, relevantEdges } = isRootGroup
+      ? { nodesToSave: nodes, relevantEdges: edges }
+      : collectGroupSubtree(groupId, nodes, edges);
+    const nodesToSave = isRootGroup
+      ? rawNodesToSave
+      : normalizeGroupFlowNameForPublish(groupId, rawNodesToSave, nodes);
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
     const nextFlowName = subflowJson.flowName;
     let previousFlowName = "";

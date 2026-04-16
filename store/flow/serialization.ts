@@ -218,7 +218,9 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     return { id: targetId, name: nameById.get(targetId) || "" };
   };
 
-  const startNode = nodes.find((node) => node.type === "start");
+  const startNode =
+    nodes.find((node) => node.type === "start" && !node.parentNode) ||
+    nodes.find((node) => node.type === "start");
   const startData = (startNode?.data as Record<string, unknown>) || {};
   const flowName = String(startData.flowName ?? "");
   const entryNodeRaw = String(startData.entryNodeId ?? startData.entryNode ?? "");
