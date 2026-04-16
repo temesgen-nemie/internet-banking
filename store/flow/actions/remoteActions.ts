@@ -3,7 +3,12 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 
 import { createFlow } from "@/lib/api";
-import { buildFlowJson, calculateFlowSnapshot } from "@/store/flow/serialization";
+import {
+  buildFlowJson,
+  calculateFlowSnapshot,
+  getFlowLeafName,
+  getNamespacedGroupFlowName,
+} from "@/store/flow/serialization";
 import type { FlowJson, FlowNode } from "@/store/flow/types";
 
 type StoreSet = (...args: any[]) => unknown;
@@ -41,6 +46,47 @@ const collectGroupSubtree = (groupId: string, nodes: Node[], edges: Edge[]) => {
   return { nodesToSave, relevantEdges };
 };
 
+const normalizeGroupFlowNameForPublish = (
+  groupId: string,
+  nodesToSave: Node[],
+  allNodes: Node[]
+): Node[] => {
+  const groupNode = allNodes.find((node) => node.id === groupId);
+  if (!groupNode) {
+    return nodesToSave;
+  }
+
+  const currentName = String((groupNode.data as Record<string, unknown>)?.name ?? "");
+  const namespacedFlowName = getNamespacedGroupFlowName(allNodes, groupId, currentName);
+  if (!namespacedFlowName) {
+    return nodesToSave;
+  }
+
+  return nodesToSave.map((node) => {
+    if (node.id === groupId) {
+      return {
+        ...node,
+        data: {
+          ...(node.data as Record<string, unknown>),
+          name: getFlowLeafName(currentName || namespacedFlowName),
+        },
+      };
+    }
+
+    if (node.parentNode === groupId && node.type === "start") {
+      return {
+        ...node,
+        data: {
+          ...(node.data as Record<string, unknown>),
+          flowName: namespacedFlowName,
+        },
+      };
+    }
+
+    return node;
+  });
+};
+
 export const createRemoteFlowActions = ({
   set,
   get,
@@ -50,7 +96,8 @@ export const createRemoteFlowActions = ({
 }) => ({
   updatePublishedFlow: async (groupId: string) => {
     const { nodes, edges, modifiedGroupIds } = get();
-    const { nodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
+    const { nodesToSave: rawNodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
+    const nodesToSave = normalizeGroupFlowNameForPublish(groupId, rawNodesToSave, nodes);
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
     const flowName = subflowJson.flowName;
 
@@ -438,7 +485,8 @@ export const createRemoteFlowActions = ({
 
   publishGroup: async (groupId: string) => {
     const { nodes, edges } = get();
-    const { nodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
+    const { nodesToSave: rawNodesToSave, relevantEdges } = collectGroupSubtree(groupId, nodes, edges);
+    const nodesToSave = normalizeGroupFlowNameForPublish(groupId, rawNodesToSave, nodes);
 
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
 

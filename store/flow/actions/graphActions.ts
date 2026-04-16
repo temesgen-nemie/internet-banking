@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import {
   buildFlowJson,
   calculateFlowSnapshot,
+  getFlowLeafName,
+  getNamespacedGroupFlowName,
   getParentGroupInfo,
   replaceNextNodeNameInScript,
 } from "@/store/flow/serialization";
@@ -816,13 +818,20 @@ updateNodeData: (id, data: Partial<Record<string, unknown>>) =>
     if (targetNode.type === "start" && data.flowName !== undefined) {
       if (targetNode.parentNode) {
         nextNodes = nextNodes.map((n) =>
-          n.id === targetNode.parentNode ? { ...n, data: { ...n.data, name: String(data.flowName) } } : n
+          n.id === targetNode.parentNode
+            ? { ...n, data: { ...n.data, name: getFlowLeafName(String(data.flowName)) } }
+            : n
         );
       }
     } else if (targetNode.type === "group" && data.name !== undefined) {
+      const nextFlowName = getNamespacedGroupFlowName(
+        nextNodes,
+        targetNode.id,
+        String(data.name)
+      );
       nextNodes = nextNodes.map((n) =>
         n.parentNode === targetNode.id && n.type === "start"
-          ? { ...n, data: { ...n.data, flowName: String(data.name) } }
+          ? { ...n, data: { ...n.data, flowName: nextFlowName } }
           : n
       );
     }
@@ -850,8 +859,14 @@ updateNodeData: (id, data: Partial<Record<string, unknown>>) =>
               connectedNode.data.isMenuBranch
             ) {
               const when = route.when as { eq?: string[] } | undefined;
-              const newName =
-                route.gotoFlow || when?.eq?.[1] || "Branch";
+              const newName = getFlowLeafName(
+                String(route.gotoFlow || when?.eq?.[1] || "Branch")
+              );
+              const nextFlowName = getNamespacedGroupFlowName(
+                nextNodes,
+                connectedNode.id,
+                newName
+              );
 
               // Update Group Name in the nextNodes array
               nextNodes = nextNodes.map((n) => {
@@ -863,7 +878,7 @@ updateNodeData: (id, data: Partial<Record<string, unknown>>) =>
                   n.parentNode === connectedNode.id &&
                   n.type === "start"
                 ) {
-                  return { ...n, data: { ...n.data, flowName: newName } };
+                  return { ...n, data: { ...n.data, flowName: nextFlowName } };
                 }
                 return n;
               });

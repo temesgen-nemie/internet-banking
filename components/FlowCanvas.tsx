@@ -331,21 +331,18 @@ export default function FlowCanvas() {
       if (top + menuHeight > window.innerHeight) top -= menuHeight;
 
       if (selectedNodes.length > 1) {
-        setMenu({
-          id: "selection",
-          top,
-          left,
-        });
+        // Only show selection menu if inside a service (group creation not allowed at root)
+        if (currentSubflowId !== null) {
+          setMenu({ id: "selection", top, left });
+        }
       } else {
-        // Show "Empty Group / Paste" menu
-        setMenu({
-          id: "pane",
-          top,
-          left,
-        });
+        // Only show pane menu if inside a service OR there's something to paste
+        if (currentSubflowId !== null || (clipboard && clipboard.length > 0)) {
+          setMenu({ id: "pane", top, left });
+        }
       }
     },
-    [visibleNodes, setMenu]
+    [visibleNodes, setMenu, currentSubflowId, clipboard]
   );
 
   // add edge (uses current edges array)
@@ -1120,6 +1117,7 @@ export default function FlowCanvas() {
             onClick={() => setMenu(null)}
           >
             {menu.id === "selection" ? (
+              currentSubflowId !== null ? (
               <button
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                 onClick={() => {
@@ -1145,8 +1143,14 @@ export default function FlowCanvas() {
                 </div>
                 Group Selected Nodes
               </button>
+              ) : (
+                <div className="px-4 py-2 text-xs text-gray-400 italic">
+                  Groups can only be created inside a service
+                </div>
+              )
             ) : menu.id === "pane" ? (
               <div className="flex flex-col gap-0.5">
+                {currentSubflowId !== null && (
                 <button
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"
                   onClick={() => {
@@ -1172,6 +1176,7 @@ export default function FlowCanvas() {
                   </div>
                   Create Empty Group
                 </button>
+                )}
                 {clipboard && clipboard.length > 0 && (
                   <button
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 font-bold transition-all group/item"

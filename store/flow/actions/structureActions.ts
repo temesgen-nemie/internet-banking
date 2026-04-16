@@ -1,7 +1,7 @@
 import { type Edge, type Node, type ReactFlowInstance } from "reactflow";
 import { v4 as uuidv4 } from "uuid";
 
-import { buildFlowJson } from "@/store/flow/serialization";
+import { buildFlowJson, getNamespacedGroupFlowName } from "@/store/flow/serialization";
 import type { FlowJson } from "@/store/flow/types";
 
 type GroupJsonModalState = {
@@ -103,11 +103,15 @@ export const createStructureActions = ({
       };
 
       // Automatically add a Start node inside the empty group
+      const groupName = String(newNode.data.name ?? "");
       const startNode: Node = {
         id: uuidv4(),
         type: "start",
         position: { x: 50, y: 50 },
-        data: { flowName: newNode.data.name, entryNode: "" },
+        data: {
+          flowName: getNamespacedGroupFlowName(nodes, groupId, groupName),
+          entryNode: "",
+        },
         parentNode: groupId,
         extent: "parent",
       };
@@ -154,9 +158,13 @@ export const createStructureActions = ({
     // Automatically handle Start node inside the new group
     const existingStart = selectedNodes.find((n) => n.type === "start");
     if (existingStart) {
+      const groupName = String(newNode.data.name ?? "");
+      const namespacedFlowName = getNamespacedGroupFlowName(nextNodes, groupId, groupName);
       // Update its name to match the group
       const finalNodes = nextNodes.map((n) =>
-        n.id === existingStart.id ? { ...n, data: { ...n.data, flowName: newNode.data.name } } : n
+        n.id === existingStart.id
+          ? { ...n, data: { ...n.data, flowName: namespacedFlowName } }
+          : n
       );
       set({
         nodes: finalNodes,
@@ -165,11 +173,15 @@ export const createStructureActions = ({
       });
     } else {
       // Create a new Start node inside
+      const groupName = String(newNode.data.name ?? "");
       const startNode: Node = {
         id: uuidv4(),
         type: "start",
         position: { x: 50, y: 50 },
-        data: { flowName: newNode.data.name, entryNode: "" },
+        data: {
+          flowName: getNamespacedGroupFlowName(nextNodes, groupId, groupName),
+          entryNode: "",
+        },
         parentNode: groupId,
         extent: "parent",
       };

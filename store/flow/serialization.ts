@@ -30,6 +30,35 @@ export const getParentGroupInfo = (
   return getParentGroupInfo(nodes, parentId);
 };
 
+export const getFlowLeafName = (flowName: string): string =>
+  String(flowName ?? "")
+    .split("/")
+    .filter(Boolean)
+    .slice(-1)[0] ?? "";
+
+export const getNamespacedGroupFlowName = (
+  nodes: Node[],
+  groupId: string,
+  rawName: string
+): string => {
+  const leafName = getFlowLeafName(String(rawName ?? "").trim());
+  if (!leafName) {
+    return "";
+  }
+
+  const parentInfo = getParentGroupInfo(nodes, groupId);
+  const namespace = String(parentInfo?.flowName ?? "").trim();
+  if (!namespace) {
+    return leafName;
+  }
+
+  if (leafName === getFlowLeafName(namespace)) {
+    return namespace;
+  }
+
+  return `${namespace}/${leafName}`;
+};
+
 /**
  * Generates a stable JSON string of the logical structure of a group's flow.
  * Used for deep comparison (Smart Diff) to detect IF meaningful changes exist.
