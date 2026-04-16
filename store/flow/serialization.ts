@@ -218,7 +218,19 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
     return { id: targetId, name: nameById.get(targetId) || "" };
   };
 
+  const rootServiceGroup = nodes.find(
+    (node) =>
+      node.type === "group" &&
+      !node.parentNode &&
+      String(node.id ?? "").startsWith("service-root-")
+  );
   const startNode =
+    nodes.find(
+      (node) =>
+        node.type === "start" &&
+        rootServiceGroup &&
+        node.parentNode === rootServiceGroup.id
+    ) ||
     nodes.find((node) => node.type === "start" && !node.parentNode) ||
     nodes.find((node) => node.type === "start");
   const startData = (startNode?.data as Record<string, unknown>) || {};
