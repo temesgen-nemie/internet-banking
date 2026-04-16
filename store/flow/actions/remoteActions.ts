@@ -515,37 +515,56 @@ export const createRemoteFlowActions = ({
 
     const subflowJson = buildFlowJson(nodesToSave, relevantEdges);
     const publishedFlowName = subflowJson.flowName;
+    const applySuccessfulPublishState = () => {
+      const normalizedStartNode = nodesToSave.find(
+        (node: Node) => node.parentNode === groupId && node.type === "start"
+      );
+      if (normalizedStartNode && publishedFlowName) {
+        set({
+          nodes: get().nodes.map((node: Node) =>
+            node.id === normalizedStartNode.id
+              ? {
+                  ...node,
+                  data: {
+                    ...(node.data as Record<string, unknown>),
+                    flowName: publishedFlowName,
+                  },
+                }
+              : node
+          ),
+        });
+      }
+      const { publishedGroupIds } = get();
+      if (groupId && !publishedGroupIds.includes(groupId)) {
+        set({ publishedGroupIds: [...publishedGroupIds, groupId] });
+      }
+    };
 
     try {
       if (!nodesToSave.some((n: Node) => n.type === "start")) {
         throw new Error("Cannot publish a group without a Start node.");
       }
 
-      toast.promise(createFlow(subflowJson), {
+      const publishPromise = (async () => {
+        try {
+          return await createFlow(subflowJson);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          const shouldReplace =
+            /already exists/i.test(message) ||
+            /flow file already exists/i.test(message);
+          if (!shouldReplace || !publishedFlowName) {
+            throw error;
+          }
+          const { updateFlow } = await import("@/lib/api");
+          return await updateFlow(publishedFlowName, subflowJson);
+        }
+      })();
+
+      toast.promise(publishPromise, {
         loading: "Publishing to backend...",
         success: () => {
-          const normalizedStartNode = nodesToSave.find(
-            (node: Node) => node.parentNode === groupId && node.type === "start"
-          );
-          if (normalizedStartNode && publishedFlowName) {
-            set({
-              nodes: get().nodes.map((node: Node) =>
-                node.id === normalizedStartNode.id
-                  ? {
-                      ...node,
-                      data: {
-                        ...(node.data as Record<string, unknown>),
-                        flowName: publishedFlowName,
-                      },
-                    }
-                  : node
-              ),
-            });
-          }
-          const { publishedGroupIds } = get();
-          if (groupId && !publishedGroupIds.includes(groupId)) {
-            set({ publishedGroupIds: [...publishedGroupIds, groupId] });
-          }
+          applySuccessfulPublishState();
           return "Subflow published successfully!";
         },
         error: (err: unknown) => {
