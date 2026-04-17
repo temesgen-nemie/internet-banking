@@ -1353,9 +1353,10 @@ export default function FlowCanvas() {
                       return (
                         <>
                           <button
-                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item border-t border-gray-50"
+                            className="w-full flex items-center justify-between gap-2.5 px-4 py-2 text-xs text-emerald-600 hover:bg-emerald-50 font-bold transition-all group/item border-t border-gray-50"
                             onClick={() => handleExportServiceBundle(menu.id)}
                           >
+                            Export Service Flows
                             <div className="p-1.5 bg-emerald-100 rounded-lg group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1372,12 +1373,12 @@ export default function FlowCanvas() {
                                 />
                               </svg>
                             </div>
-                            Export Service Flows
                           </button>
                           <button
-                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-sky-600 hover:bg-sky-50 font-bold transition-all group/item border-t border-gray-50"
+                            className="w-full flex items-center justify-between gap-2.5 px-4 py-2 text-xs text-sky-600 hover:bg-sky-50 font-bold transition-all group/item border-t border-gray-50"
                             onClick={() => handleTriggerServiceImport(menu.id)}
                           >
+                            Import Service Flows
                             <div className="p-1.5 bg-sky-100 rounded-lg group-hover/item:bg-sky-600 group-hover/item:text-white transition-colors">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1394,7 +1395,6 @@ export default function FlowCanvas() {
                                 />
                               </svg>
                             </div>
-                            Import Service Flows
                           </button>
                         </>
                       );

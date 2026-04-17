@@ -21,6 +21,77 @@ const getVisualStateArrays = (flow?: FlowJson) => {
   return { nodes, edges };
 };
 
+const normalizeVisualNodesForCanvas = (nodes: Node[]): Node[] => {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const absoluteCache = new Map<string, { x: number; y: number }>();
+
+  const getAbsolutePosition = (node: Node): { x: number; y: number } => {
+    const cached = absoluteCache.get(node.id);
+    if (cached) {
+      return cached;
+    }
+
+    const explicitAbsolute = (node as Node & { positionAbsolute?: { x: number; y: number } })
+      .positionAbsolute;
+    if (explicitAbsolute) {
+      absoluteCache.set(node.id, explicitAbsolute);
+      return explicitAbsolute;
+    }
+
+    if (!node.parentNode) {
+      absoluteCache.set(node.id, node.position);
+      return node.position;
+    }
+
+    const parent = nodeMap.get(node.parentNode);
+    if (!parent) {
+      absoluteCache.set(node.id, node.position);
+      return node.position;
+    }
+
+    const parentAbs = getAbsolutePosition(parent);
+    const absolute = {
+      x: parentAbs.x + node.position.x,
+      y: parentAbs.y + node.position.y,
+    };
+    absoluteCache.set(node.id, absolute);
+    return absolute;
+  };
+
+  return nodes.map((node) => {
+    const { positionAbsolute: _positionAbsolute, ...rest } = node as Node & {
+      positionAbsolute?: { x: number; y: number };
+    };
+
+    if (!node.parentNode) {
+      return {
+        ...rest,
+        position: getAbsolutePosition(node),
+      } as Node;
+    }
+
+    const parent = nodeMap.get(node.parentNode);
+    if (!parent) {
+      return {
+        ...rest,
+        position: getAbsolutePosition(node),
+        parentNode: undefined,
+        extent: undefined,
+      } as Node;
+    }
+
+    const absolute = getAbsolutePosition(node);
+    const parentAbs = getAbsolutePosition(parent);
+    return {
+      ...rest,
+      position: {
+        x: absolute.x - parentAbs.x,
+        y: absolute.y - parentAbs.y,
+      },
+    } as Node;
+  });
+};
+
 const getPublishedStartNodeForFlow = (flow: FlowJson): Node | undefined => {
   const { nodes } = getVisualStateArrays(flow);
   const startNodes = nodes.filter((node: Node) => node.type === "start");
@@ -336,7 +407,7 @@ export const createRemoteFlowActions = ({
 
       rootCanvasFlows.forEach((f: FlowJson) => {
         const { nodes, edges } = getVisualStateArrays(f);
-        backendNodes = [...backendNodes, ...nodes];
+        backendNodes = [...backendNodes, ...normalizeVisualNodesForCanvas(nodes)];
         backendEdges = [...backendEdges, ...edges];
       });
 
@@ -498,8 +569,9 @@ export const createRemoteFlowActions = ({
 
       const otherNodes = nodes.filter((n: Node) => n.parentNode !== groupId);
 
-      const backendGroupNode = visualState.nodes.find((bn: Node) => bn.id === groupId);
-      const nextFlowNodes = visualState.nodes
+      const normalizedVisualNodes = normalizeVisualNodesForCanvas(visualState.nodes);
+      const backendGroupNode = normalizedVisualNodes.find((bn: Node) => bn.id === groupId);
+      const nextFlowNodes = normalizedVisualNodes
         .filter((bn: Node) => bn.id !== groupId)
         .map((bn: Node) => {
           const freshLogicalData = logicalDataMap.get(bn.id) ?? {};
