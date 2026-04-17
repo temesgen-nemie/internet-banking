@@ -203,7 +203,7 @@ export default function RouterInspector({
     const persisted = new Set(node.data.persistResponseMappingKeys || []);
     const masked = new Set(node.data.maskedResponseMappingKeys || []);
     return Object.entries(mapping).map(([key, value], idx) => ({
-      id: `map-init-${idx}-${key}`,
+      id: `map-init-${idx}`,
       key,
       value: String(value ?? ""),
       persist: persisted.has(key),
@@ -329,7 +329,11 @@ export default function RouterInspector({
           nextMaskedKeys.push(key);
         }
       });
-      lastResponseMappingSignatureRef.current = JSON.stringify(nextMapping);
+      lastResponseMappingSignatureRef.current = JSON.stringify({
+        mapping: nextMapping,
+        persist: nextPersistKeys,
+        mask: nextMaskedKeys,
+      });
       updateNodeData(node.id, {
         responseMapping: Object.keys(nextMapping).length > 0 ? nextMapping : {},
         persistResponseMappingKeys: nextPersistKeys,
