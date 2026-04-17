@@ -14,6 +14,7 @@ type RouterNextNode = {
   routes?: RouterRoute[];
   default?: string;
   defaultId?: string;
+  defaultFlow?: string;
 };
 
 type RouterNodeData = {
@@ -168,6 +169,12 @@ export default function RouterNode({ id, data, selected }: RouterNodeProps) {
           </span>
           <span className="text-gray-600 font-medium truncate max-w-[100px] ml-auto mr-2">
             {(() => {
+              const flowTarget = nextNode?.defaultFlow;
+              if (flowTarget) {
+                const leafName = flowTarget.split("/").pop();
+                return leafName || flowTarget;
+              }
+
               const fallback = nextNode?.defaultId || nextNode?.default;
               if (!fallback) return "Stay";
               const resolved = resolveTargetId(fallback);
