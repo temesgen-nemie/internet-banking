@@ -326,15 +326,21 @@ export const createRemoteFlowActions = ({
     try {
       const { getAllFlows } = await import("@/lib/api");
       const flows = await getAllFlows();
+      const rootCanvasFlows = flows.filter(
+        (flow: FlowJson) => !String(flow.flowName || "").includes("/")
+      );
 
       let backendNodes: Node[] = [];
       let backendEdges: Edge[] = [];
       const allLogicalDataMap = new Map<string, FlowNode>();
 
-      flows.forEach((f: FlowJson) => {
+      rootCanvasFlows.forEach((f: FlowJson) => {
         const { nodes, edges } = getVisualStateArrays(f);
         backendNodes = [...backendNodes, ...nodes];
         backendEdges = [...backendEdges, ...edges];
+      });
+
+      flows.forEach((f: FlowJson) => {
         f.nodes.forEach((fn) => allLogicalDataMap.set(fn.id, fn));
       });
 
@@ -417,6 +423,10 @@ export const createRemoteFlowActions = ({
       }
 
       const finalNodes = Array.from(nodeMap.values());
+      const finalNodeIds = new Set(finalNodes.map((node) => node.id));
+      const finalEdges = mergedEdges.filter(
+        (edge) => finalNodeIds.has(edge.source) && finalNodeIds.has(edge.target)
+      );
 
       const publishedGroupIdsFromBackend = flows
         .map((f: FlowJson) => {
@@ -427,11 +437,11 @@ export const createRemoteFlowActions = ({
 
       set({
         nodes: finalNodes,
-        edges: mergedEdges,
-        flow: buildFlowJson(finalNodes, mergedEdges),
+        edges: finalEdges,
+        flow: buildFlowJson(finalNodes, finalEdges),
         publishedGroupIds: publishedGroupIdsFromBackend,
         lastSyncedSnapshots: publishedGroupIdsFromBackend.reduce((acc, id) => {
-          acc[id] = calculateFlowSnapshot(id, finalNodes, mergedEdges);
+          acc[id] = calculateFlowSnapshot(id, finalNodes, finalEdges);
           return acc;
         }, {} as Record<string, string>),
         modifiedGroupIds: get().modifiedGroupIds.filter((groupId: string) => {
@@ -685,8 +695,8 @@ export const createRemoteFlowActions = ({
     const currentName = flowNode.name || nodeId;
 
     try {
-      const { updateNodeById } = await import("@/lib/api");
-      toast.promise(updateNodeById(nodeId, { node: flowNode }), {
+      const { updateNodeByIdInFlow } = await import("@/lib/api");
+      toast.promise(updateNodeByIdInFlow(flowName, nodeId, { node: flowNode }), {
         loading: `Syncing changes from '${currentName}'...`,
         success: () => {
           const { modifiedGroupIds } = get();
