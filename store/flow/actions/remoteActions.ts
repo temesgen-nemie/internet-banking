@@ -21,6 +21,17 @@ const getVisualStateArrays = (flow?: FlowJson) => {
   return { nodes, edges };
 };
 
+const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    if (!item.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push(item);
+  }
+  return result;
+};
+
 const normalizeVisualNodesForCanvas = (nodes: Node[]): Node[] => {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const absoluteCache = new Map<string, { x: number; y: number }>();
@@ -493,10 +504,13 @@ export const createRemoteFlowActions = ({
         }
       }
 
-      const finalNodes = Array.from(nodeMap.values());
+      const finalNodes = dedupeById(Array.from(nodeMap.values()));
       const finalNodeIds = new Set(finalNodes.map((node) => node.id));
-      const finalEdges = mergedEdges.filter(
-        (edge) => finalNodeIds.has(edge.source) && finalNodeIds.has(edge.target)
+      const finalEdges = dedupeById(mergedEdges).filter(
+        (edge) =>
+          edge.source !== edge.target &&
+          finalNodeIds.has(edge.source) &&
+          finalNodeIds.has(edge.target)
       );
 
       const publishedGroupIdsFromBackend = flows

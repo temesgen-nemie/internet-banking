@@ -64,6 +64,17 @@ const nodeTypes = {
   functionCall: FunctionCallNode,
 };
 
+const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    if (!item.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push(item);
+  }
+  return result;
+};
+
 export default function FlowCanvas() {
   const serviceImportInputRef = useRef<HTMLInputElement | null>(null);
   const [menu, setMenu] = useState<{
@@ -156,22 +167,18 @@ export default function FlowCanvas() {
   // Filter nodes and edges based on subflow level
   // Strip parentNode reference from visible nodes so React Flow treats them as top-level in drill-down view
   const visibleNodes = useMemo(() => {
-    return nodes
+    return dedupeById(nodes)
       .filter((n) => (n.parentNode || null) === (currentSubflowId || null))
       .map((n) => (currentSubflowId ? { ...n, parentNode: undefined } : n));
   }, [nodes, currentSubflowId]);
 
   // Edges are visible if both source and target are in the current view
   const visibleEdges = useMemo(() => {
-    return edges.filter((e) => {
-      const s = nodes.find((n) => n.id === e.source);
-      const t = nodes.find((n) => n.id === e.target);
-      return (
-        (s?.parentNode || null) === (currentSubflowId || null) &&
-        (t?.parentNode || null) === (currentSubflowId || null)
-      );
-    });
-  }, [edges, nodes, currentSubflowId]);
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+    return dedupeById(edges).filter(
+      (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+    );
+  }, [edges, visibleNodes]);
 
   const resolveRootServiceTarget = useCallback(
     (groupId: string) => {
