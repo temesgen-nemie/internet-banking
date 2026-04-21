@@ -447,6 +447,11 @@ export const createRemoteFlowActions = ({
           const freshLogicalData = allLogicalDataMap.get(node.id);
           acc.push({
             ...backendNode,
+            // Preserve the current position — the user may have moved nodes
+            // since the last save. Only fall back to backend position if the
+            // node is brand-new (not in currentNodes at all, handled below).
+            position: node.position,
+            positionAbsolute: (node as any).positionAbsolute ?? (backendNode as any).positionAbsolute,
             data: { ...backendNode.data, ...freshLogicalData },
             selected: node.selected,
           } as Node);
