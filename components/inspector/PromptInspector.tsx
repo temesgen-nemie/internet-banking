@@ -1324,7 +1324,9 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                 onChange={(e) =>
                   updateNodeData(node.id, {
                     saveSessionStep: e.target.checked,
-                    ...(e.target.checked ? {} : { sessionStepSessionId: "" }),
+                    ...(e.target.checked || node.data.responseType === "END"
+                      ? {}
+                      : { sessionStepSessionId: "" }),
                   })
                 }
                 className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 transition-all border-2 checked:bg-emerald-600"
@@ -1333,7 +1335,10 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
             </label>
           </div>
 
-          {(node.data.persistByIndex || node.data.persistInput || node.data.saveSessionStep) && (
+          {(node.data.persistByIndex ||
+            node.data.persistInput ||
+            node.data.saveSessionStep ||
+            node.data.responseType === "END") && (
             <div className="pt-3 space-y-3 animate-in fade-in slide-in-from-top-2">
               {node.data.persistByIndex && (
                 <div className="space-y-3">
@@ -1393,10 +1398,12 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                   />
                 </div>
               )}
-              {node.data.saveSessionStep && (
+              {(node.data.saveSessionStep || node.data.responseType === "END") && (
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
-                    Session Step Session ID
+                    {node.data.responseType === "END"
+                      ? "END Cleanup Session ID"
+                      : "Session Step Session ID"}
                   </label>
                   <input
                     className="w-full text-sm border-2 border-gray-100 rounded-lg bg-gray-50/50 px-3 py-2 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all text-gray-900"
@@ -1407,8 +1414,17 @@ export default function PromptInspector({ node, updateNodeData }: PromptInspecto
                     placeholder="{{vars.uuid}}"
                   />
                   <div className="mt-1 text-[10px] text-gray-400">
-                    Saves <span className="font-mono">sessionStep</span> with this prompt name into
-                    input manager for the provided session. Leave empty to use the current session.
+                    {node.data.responseType === "END" ? (
+                      <>
+                        Deletes input manager and common manager data for this session when the
+                        prompt ends. Leave empty to use the current session.
+                      </>
+                    ) : (
+                      <>
+                        Saves <span className="font-mono">sessionStep</span> with this prompt name into
+                        input manager for the provided session. Leave empty to use the current session.
+                      </>
+                    )}
                   </div>
                 </div>
               )}

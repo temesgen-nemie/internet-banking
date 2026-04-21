@@ -256,26 +256,28 @@ export const createRemoteFlowActions = ({
 
     try {
       const { updateFlow } = await import("@/lib/api");
-      toast.promise(updateFlow(flowName, subflowJson), {
+      const updatePromise = updateFlow(flowName, subflowJson);
+      toast.promise(updatePromise, {
         loading: `Updating flow '${nextFlowName}'...`,
-        success: () => {
-          const nextSnapshot = calculateFlowSnapshot(groupId, nodes, edges);
-          set({
-            modifiedGroupIds: modifiedGroupIds.filter((id: string) => id !== groupId),
-            lastSyncedSnapshots: {
-              ...get().lastSyncedSnapshots,
-              [groupId]: nextSnapshot,
-            },
-            modifiedGroupsLog: {
-              ...get().modifiedGroupsLog,
-              [groupId]: [],
-            },
-          });
-          return `Flow '${nextFlowName}' updated successfully!`;
-        },
+        success: () => `Flow '${nextFlowName}' updated successfully!`,
         error: (err: unknown) => {
           const message = err instanceof Error ? err.message : "Unknown error";
           return `Failed to update: ${message}`;
+        },
+      });
+
+      await updatePromise;
+
+      const nextSnapshot = calculateFlowSnapshot(groupId, nodes, edges);
+      set({
+        modifiedGroupIds: modifiedGroupIds.filter((id: string) => id !== groupId),
+        lastSyncedSnapshots: {
+          ...get().lastSyncedSnapshots,
+          [groupId]: nextSnapshot,
+        },
+        modifiedGroupsLog: {
+          ...get().modifiedGroupsLog,
+          [groupId]: [],
         },
       });
     } catch (error) {

@@ -762,6 +762,10 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
             data.sessionMode === "disabled"
               ? data.sessionMode
               : undefined,
+          extractUrlPathSegment:
+            typeof data.extractUrlPathSegment === "boolean"
+              ? data.extractUrlPathSegment
+              : undefined,
           responseMapping:
             Object.keys(responseMapping).length > 0
               ? responseMapping

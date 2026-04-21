@@ -47,6 +47,7 @@ export type FlowNode = {
   endpoint?: string;
   url?: string;
   method?: string;
+  extractUrlPathSegment?: boolean;
   curl?: string;
   wsCurl?: string;
   requestSource?: "api" | "local" | "ws";

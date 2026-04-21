@@ -377,6 +377,10 @@ export const createStructureActions = ({
         nextData.url = flowNode.url ?? nextData.url;
         nextData.method = flowNode.method ?? nextData.method;
         nextData.sessionMode = flowNode.sessionMode ?? nextData.sessionMode;
+        nextData.extractUrlPathSegment =
+          typeof flowNode.extractUrlPathSegment === "boolean"
+            ? flowNode.extractUrlPathSegment
+            : nextData.extractUrlPathSegment;
         nextData.responseMapping = flowNode.responseMapping ?? nextData.responseMapping;
 
         if (typeof flowNode.nextNode === "string") {
