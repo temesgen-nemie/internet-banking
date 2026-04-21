@@ -445,12 +445,24 @@ export const createRemoteFlowActions = ({
         const backendNode = backendNodeMap.get(node.id);
         if (backendNode) {
           const freshLogicalData = allLogicalDataMap.get(node.id);
+
+          // Use backend position when:
+          // 1. The node's parent group was NOT in the last synced snapshots
+          //    (meaning it was just imported / replaced from backend)
+          // 2. OR the node has no parent (root group) — always trust backend
+          const { lastSyncedSnapshots } = get();
+          const parentGroupId = node.parentNode ?? null;
+          const parentWasPreviouslySynced =
+            parentGroupId === null ||
+            (lastSyncedSnapshots && parentGroupId in lastSyncedSnapshots);
+
+          const resolvedPosition = parentWasPreviouslySynced
+            ? node.position          // user may have moved it — keep their position
+            : backendNode.position;  // freshly imported — use backend (grid) position
+
           acc.push({
             ...backendNode,
-            // Preserve the current position — the user may have moved nodes
-            // since the last save. Only fall back to backend position if the
-            // node is brand-new (not in currentNodes at all, handled below).
-            position: node.position,
+            position: resolvedPosition,
             positionAbsolute: (node as any).positionAbsolute ?? (backendNode as any).positionAbsolute,
             data: { ...backendNode.data, ...freshLogicalData },
             selected: node.selected,
@@ -491,6 +503,16 @@ export const createRemoteFlowActions = ({
       const mergedEdges = [...updatedEdges, ...missingEdges];
 
       const nodeMap = new Map(mergedNodes.map((n) => [n.id, n]));
+
+      // Remove nodes whose parentNode no longer exists in the backend node set.
+      // This cleans up stale nodes from old imports that had different group IDs.
+      const backendNodeIds = new Set(backendNodes.map((n) => n.id));
+      for (const [id, node] of nodeMap) {
+        if (node.parentNode && !backendNodeIds.has(node.parentNode)) {
+          // Parent group is gone from backend — drop this node entirely
+          nodeMap.delete(id);
+        }
+      }
 
       for (const [id, node] of nodeMap) {
         if (node.parentNode && !nodeMap.has(node.parentNode)) {
