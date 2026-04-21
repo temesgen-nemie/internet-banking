@@ -26,6 +26,7 @@ type RouterInspectorProps = {
       apiBodyRaw?: string;
       bodyMode?: "json" | "soap" | "form";
       nextNode?: string | RouterNextNode;
+      extractUrlPathSegment?: boolean;
     };
   };
   updateNodeData: (id: string, data: Partial<Record<string, unknown>>) => void;
@@ -498,6 +499,26 @@ export default function RouterInspector({
             />
           </div>
         </div>
+
+        {/* URL Path Segment Extraction */}
+        <label className="inline-flex items-center gap-2.5 cursor-pointer select-none group">
+          <input
+            type="checkbox"
+            checked={Boolean(node.data.extractUrlPathSegment)}
+            onChange={(e) =>
+              updateNodeData(node.id, { extractUrlPathSegment: e.target.checked })
+            }
+            className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+          />
+          <span className="text-xs font-medium text-gray-700 group-hover:text-amber-700 transition-colors">
+            Extract last URL path segment
+          </span>
+          {node.data.extractUrlPathSegment && (
+            <span className="text-[10px] font-mono bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">
+              → request.body.urlPathExtract
+            </span>
+          )}
+        </label>
 
         <div>
           <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">
