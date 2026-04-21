@@ -21,6 +21,7 @@ export default function InspectorPanel() {
     setNodes,
     closeInspector,
     syncNodeWithBackend,
+    updatePublishedFlow,
     inspectorPosition,
   } = useFlowStore();
   const { user } = useAuthStore();
@@ -397,7 +398,11 @@ export default function InspectorPanel() {
                     }
                   }
 
-                  syncNodeWithBackend(selectedNodeId, originalNameRef.current);
+                  if (parentGroupId) {
+                    await updatePublishedFlow(parentGroupId);
+                  } else {
+                    syncNodeWithBackend(selectedNodeId, originalNameRef.current);
+                  }
                   closeInspector();
                 } catch (error) {
                   toast.error(
