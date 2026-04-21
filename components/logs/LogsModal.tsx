@@ -27,7 +27,12 @@ const getInitialSize = () => {
 };
 
 const resolveLogsWebSocketUrl = () => {
-  const configured = process.env.NEXT_PUBLIC_LOGS_WS_URL?.trim();
+
+  // const configured = process.env.NEXT_PUBLIC_LOGS_WS_URL?.trim();
+
+  const configured="wss://sau.eaglelionsystems.com/ussdpush/builder/api/v1/admin/logs/stream"
+
+  
   if (configured) {
     return configured;
   }
