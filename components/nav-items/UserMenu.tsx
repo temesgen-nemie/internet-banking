@@ -118,7 +118,7 @@ export default function UserMenu() {
           Logout
         </DropdownMenuItem>
         <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-medium text-muted-foreground/70">
-          v1.1.1
+          v1.1.2
         </div>
       </DropdownMenuContent>
 

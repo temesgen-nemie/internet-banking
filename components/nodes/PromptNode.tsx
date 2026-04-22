@@ -37,6 +37,7 @@ type PromptNodeData = {
   persistInputAs?: string;
   saveSessionStep?: boolean;
   sessionStepSessionId?: string;
+  endCleanupSessionId?: string;
   responseType?: "CONTINUE" | "END";
   encryptInput?: boolean;
 };

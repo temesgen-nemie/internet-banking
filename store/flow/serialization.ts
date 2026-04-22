@@ -317,6 +317,7 @@ export const buildFlowJson = (nodes: Node[], edges: Edge[]): FlowJson => {
           saveSessionStep:
             typeof data.saveSessionStep === "boolean" ? data.saveSessionStep : undefined,
           sessionStepSessionId: String(data.sessionStepSessionId ?? "") || undefined,
+          endCleanupSessionId: String(data.endCleanupSessionId ?? "") || undefined,
           responseType: (data.responseType as any) || "CONTINUE",
           encryptInput: typeof data.encryptInput === "boolean" ? data.encryptInput : undefined,
         };

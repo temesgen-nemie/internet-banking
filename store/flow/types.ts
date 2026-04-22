@@ -41,6 +41,7 @@ export type FlowNode = {
   persistInputAs?: string;
   saveSessionStep?: boolean;
   sessionStepSessionId?: string;
+  endCleanupSessionId?: string;
   script?: string;
   timeoutMs?: number;
   scriptRoutes?: Array<{ key?: string; goto?: string; gotoId?: string; gotoFlow?: string }>;
