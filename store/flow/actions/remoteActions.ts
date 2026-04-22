@@ -410,26 +410,32 @@ export const createRemoteFlowActions = ({
     try {
       const { getAllFlows } = await import("@/lib/api");
       const flows = await getAllFlows();
-      const rootCanvasFlows = flows.filter(
-        (flow: FlowJson) => !String(flow.flowName || "").includes("/")
-      );
+      const flowsBySpecificity = [...flows].sort((a: FlowJson, b: FlowJson) => {
+        const aDepth = String(a.flowName || "").split("/").filter(Boolean).length;
+        const bDepth = String(b.flowName || "").split("/").filter(Boolean).length;
+        return aDepth - bDepth;
+      });
 
-      let backendNodes: Node[] = [];
-      let backendEdges: Edge[] = [];
+      const backendNodeMap = new Map<string, Node>();
+      const backendEdgeMap = new Map<string, Edge>();
       const allLogicalDataMap = new Map<string, FlowNode>();
 
-      rootCanvasFlows.forEach((f: FlowJson) => {
+      flowsBySpecificity.forEach((f: FlowJson) => {
         const { nodes, edges } = getVisualStateArrays(f);
-        backendNodes = [...backendNodes, ...normalizeVisualNodesForCanvas(nodes)];
-        backendEdges = [...backendEdges, ...edges];
+        normalizeVisualNodesForCanvas(nodes).forEach((node) => {
+          backendNodeMap.set(node.id, node);
+        });
+        edges.forEach((edge) => {
+          backendEdgeMap.set(edge.id, edge);
+        });
       });
 
       flows.forEach((f: FlowJson) => {
         f.nodes.forEach((fn) => allLogicalDataMap.set(fn.id, fn));
       });
 
-      const backendNodeMap = new Map(backendNodes.map((n) => [n.id, n]));
-      const backendEdgeMap = new Map(backendEdges.map((e) => [e.id, e]));
+      const backendNodes = Array.from(backendNodeMap.values());
+      const backendEdges = Array.from(backendEdgeMap.values());
 
       const { nodes: currentNodes, edges: currentEdges } = get();
 
