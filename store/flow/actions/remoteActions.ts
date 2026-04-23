@@ -410,10 +410,13 @@ export const createRemoteFlowActions = ({
     try {
       const { getAllFlows } = await import("@/lib/api");
       const flows = await getAllFlows();
+      // Process deeper (child) flows first so the root/parent flow is applied last
+      // and its positions are authoritative. Without this, stale child-flow positions
+      // overwrite the parent's corrected layout on every fresh load.
       const flowsBySpecificity = [...flows].sort((a: FlowJson, b: FlowJson) => {
         const aDepth = String(a.flowName || "").split("/").filter(Boolean).length;
         const bDepth = String(b.flowName || "").split("/").filter(Boolean).length;
-        return aDepth - bDepth;
+        return bDepth - aDepth;
       });
 
       const backendNodeMap = new Map<string, Node>();
@@ -468,8 +471,19 @@ export const createRemoteFlowActions = ({
             ? node.position          // user may have moved it — keep their position
             : backendNode.position;  // freshly imported — use backend (grid) position
 
+          // When a node's parent was previously synced, also preserve local
+          // width/height/style so group dimensions don't revert to stale backend values.
+          const localLayout = parentWasPreviouslySynced
+            ? {
+                width: (node as any).width ?? (backendNode as any).width,
+                height: (node as any).height ?? (backendNode as any).height,
+                style: (node as any).style ?? (backendNode as any).style,
+              }
+            : {};
+
           acc.push({
             ...backendNode,
+            ...localLayout,
             position: resolvedPosition,
             positionAbsolute: (node as any).positionAbsolute ?? (backendNode as any).positionAbsolute,
             data: { ...backendNode.data, ...freshLogicalData },
